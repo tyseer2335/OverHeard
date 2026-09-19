@@ -23,6 +23,8 @@ INDEX_SETTINGS: dict[str, Any] = {
         "dynamic": "strict",
         "properties": {
             "id": {"type": "keyword"},
+            "organization_id": {"type": "keyword"},
+            "product_id": {"type": "keyword"},
             "product": {"type": "keyword"},
             "search_query": {"type": "keyword"},
             "video_id": {"type": "keyword"},
@@ -55,6 +57,15 @@ class CommentStore:
     def ensure_index(self) -> None:
         if not self.client.indices.exists(index=self.index):
             self.client.indices.create(index=self.index, **INDEX_SETTINGS)
+        else:
+            # Safe for indices created before tenant-aware fields were introduced.
+            self.client.indices.put_mapping(
+                index=self.index,
+                properties={
+                    "organization_id": {"type": "keyword"},
+                    "product_id": {"type": "keyword"},
+                },
+            )
 
     def index_comments(self, comments: Iterable[EnrichedComment]) -> int:
         actions = (
@@ -63,9 +74,7 @@ class CommentStore:
                 "_index": self.index,
                 # The same video can be discovered for multiple products. Preserve
                 # each product association while keeping same-product reruns idempotent.
-                "_id": sha256(
-                    f"{comment.product.casefold()}\0{comment.id}".encode("utf-8")
-                ).hexdigest(),
+                "_id": self._document_id(comment),
                 "_source": comment.model_dump(mode="json"),
             }
             for comment in comments
@@ -73,11 +82,16 @@ class CommentStore:
         success, _ = helpers.bulk(self.client, actions, raise_on_error=True)
         return success
 
-    def analytics(self, product: str) -> dict[str, Any]:
+    def analytics(
+        self,
+        product: str,
+        organization_id: str | None = None,
+        product_id: str | None = None,
+    ) -> dict[str, Any]:
         response = self.client.search(
             index=self.index,
             size=0,
-            query={"term": {"product": product}},
+            query={"bool": {"filter": self._filters(product, organization_id, product_id)}},
             aggs={
                 "sentiment": {"terms": {"field": "sentiment", "size": 3}},
                 "issues": {"terms": {"field": "issue_categories", "size": 20}},
@@ -128,9 +142,15 @@ class CommentStore:
         }
 
     def search_comments(
-        self, product: str, query: str | None, complaints_only: bool, limit: int
+        self,
+        product: str,
+        query: str | None,
+        complaints_only: bool,
+        limit: int,
+        organization_id: str | None = None,
+        product_id: str | None = None,
     ) -> list[dict[str, Any]]:
-        filters: list[dict[str, Any]] = [{"term": {"product": product}}]
+        filters = self._filters(product, organization_id, product_id)
         if complaints_only:
             filters.append({"term": {"is_complaint": True}})
         must = [{"match": {"text": query}}] if query else []
@@ -145,6 +165,26 @@ class CommentStore:
     @staticmethod
     def _buckets(buckets: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return [{"name": item["key"], "count": item["doc_count"]} for item in buckets]
+
+    @staticmethod
+    def _filters(
+        product: str, organization_id: str | None, product_id: str | None
+    ) -> list[dict[str, Any]]:
+        filters: list[dict[str, Any]] = [{"term": {"product": product}}]
+        if organization_id:
+            filters.append({"term": {"organization_id": organization_id}})
+        if product_id:
+            filters.append({"term": {"product_id": product_id}})
+        return filters
+
+    @staticmethod
+    def _document_id(comment: EnrichedComment) -> str:
+        scope = (
+            f"{comment.organization_id}:{comment.product_id}"
+            if comment.organization_id and comment.product_id
+            else comment.product.casefold()
+        )
+        return sha256(f"{scope}\0{comment.id}".encode("utf-8")).hexdigest()
 
 
 def create_elastic_client(

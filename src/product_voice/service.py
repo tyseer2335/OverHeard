@@ -32,6 +32,8 @@ class IngestionService:
                 enriched = (
                     EnrichedComment(
                         **comment.model_dump(),
+                        organization_id=request.organization_id,
+                        product_id=request.product_id,
                         product=request.product,
                         search_query=query,
                         video_title=video.title,
@@ -56,4 +58,3 @@ class IngestionService:
             comments_indexed=indexed,
             videos_skipped=skipped,
         )
-

@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     elastic_cloud_id: str | None = None
     elasticsearch_url: str | None = None
     elastic_index: str = "youtube-product-comments"
+    supabase_url: str = Field(min_length=1)
+    supabase_publishable_key: str = Field(min_length=1)
+    supabase_secret_key: str = Field(min_length=1)
     cors_origins: str = "http://localhost:3000"
 
     @model_validator(mode="after")
@@ -28,4 +31,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()  # type: ignore[call-arg]
-
