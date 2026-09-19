@@ -10,3 +10,7 @@ frontend/.env.local
 .backend*.log
 .frontend*.log
 .qa/
+
+# collected data artifacts
+*.jsonl
+data/

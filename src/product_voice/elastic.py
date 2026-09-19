@@ -27,6 +27,8 @@ INDEX_SETTINGS: dict[str, Any] = {
             "product_id": {"type": "keyword"},
             "product": {"type": "keyword"},
             "search_query": {"type": "keyword"},
+            "source": {"type": "keyword"},
+            "url": {"type": "keyword", "ignore_above": 1024},
             "video_id": {"type": "keyword"},
             "video_title": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
             "channel_id": {"type": "keyword"},
@@ -58,12 +60,15 @@ class CommentStore:
         if not self.client.indices.exists(index=self.index):
             self.client.indices.create(index=self.index, **INDEX_SETTINGS)
         else:
-            # Safe for indices created before tenant-aware fields were introduced.
+            # Safe for indices created before tenant-aware and multi-source
+            # fields were introduced. Mapping updates here are additive only.
             self.client.indices.put_mapping(
                 index=self.index,
                 properties={
                     "organization_id": {"type": "keyword"},
                     "product_id": {"type": "keyword"},
+                    "source": {"type": "keyword"},
+                    "url": {"type": "keyword", "ignore_above": 1024},
                 },
             )
 

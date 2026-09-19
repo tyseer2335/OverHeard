@@ -30,10 +30,17 @@ class EnrichedComment(Comment):
     product_id: UUID | None = None
     product: str
     search_query: str
-    video_title: str
-    channel_id: str
-    channel_title: str
-    video_published_at: datetime
+    # Which adapter produced this row. Without it every source looks identical
+    # once indexed, and cross-source contradiction analysis is impossible.
+    source: str = "youtube"
+    url: str = ""
+    # Video fields default so non-video sources (Hacker News, Browserbase) can
+    # be stored in the same index. For those, thread/container values are
+    # mapped in: video_id <- thread_id, channel_id <- container_id.
+    video_title: str = ""
+    channel_id: str = ""
+    channel_title: str = ""
+    video_published_at: datetime | None = None
     sentiment: str
     sentiment_score: float
     is_complaint: bool
