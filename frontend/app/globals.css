@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-ink text-slate-100;
+  background-image:
+    radial-gradient(1200px 600px at 15% -10%, rgba(79, 70, 229, 0.12), transparent),
+    radial-gradient(1000px 500px at 100% 0%, rgba(16, 185, 129, 0.08), transparent);
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #232c44; border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.card {
+  @apply rounded-2xl border border-line bg-panel/70 backdrop-blur;
+}

@@ -1,0 +1,40 @@
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+frontend/.env.local
+!frontend/.env.local.example
+
+# --- Python ---
+backend/.venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Node / Next ---
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/.turbo/
+*.tsbuildinfo
+npm-debug.log*
+
+# --- Elasticsearch local data (docker volume is external, but just in case) ---
+esdata/
+
+# --- OS / editor ---
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# --- Generated (contains the tool secret; regenerate with the setup script) ---
+backend/elevenlabs_agent.json
+
+# --- Scratch ---
+scratch/
+tmp/

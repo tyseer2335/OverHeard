@@ -1,0 +1,44 @@
+# Local Elasticsearch for development. Security is disabled for convenience on
+# localhost only — do not use this config anywhere public.
+#
+#   docker compose up -d elasticsearch
+#   curl http://localhost:9200            # should return cluster info
+#
+# For the event/cloud deployment, ignore this file and set ELASTIC_CLOUD_ID +
+# ELASTIC_API_KEY in .env instead.
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.1
+    container_name: voxmarket-es
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.license.self_generated.type=basic
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - ingest.geoip.downloader.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # Optional: Kibana for poking at the index during dev. Not needed for the demo.
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.17.1
+    container_name: voxmarket-kibana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    profiles: ["kibana"]  # start with: docker compose --profile kibana up -d
+
+volumes:
+  esdata:
+    driver: local

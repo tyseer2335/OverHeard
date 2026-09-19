@@ -1,0 +1,252 @@
+{
+  "subject": "Notion",
+  "aliases": ["notion", "notion.so", "notion hq"],
+  "note": "Curated, demo-grade corpus. Engineered so pricing LOOKS like the top complaint but is concentrated in one viral thread (t_pricing_viral); onboarding is consistent across independent threads. Excluding the viral thread flips the conclusion to onboarding.",
+  "items": [
+    {
+      "source_id": "pv1", "thread_id": "t_pricing_viral",
+      "thread_title": "Notion's new per-seat pricing is highway robbery",
+      "url": "https://old.reddit.com/r/Notion/comments/pv/1", "author": "u/spreadsheet_ninja",
+      "created_at": "2026-09-08T14:02:00Z", "score": 842,
+      "text": "They now charge full price for seats that haven't logged in for MONTHS. I'm paying for 12 inactive seats. This is insane for a small team.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "pricing", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "pv2", "thread_id": "t_pricing_viral",
+      "thread_title": "Notion's new per-seat pricing is highway robbery",
+      "url": "https://old.reddit.com/r/Notion/comments/pv/2", "author": "u/deploy_friday",
+      "created_at": "2026-09-08T14:20:00Z", "score": 410,
+      "text": "Same. The inactive seat billing is predatory. We got a bill for people who left the company in spring.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "pricing", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "pv3", "thread_id": "t_pricing_viral",
+      "thread_title": "Notion's new per-seat pricing is highway robbery",
+      "url": "https://old.reddit.com/r/Notion/comments/pv/3", "author": "u/grumpy_pm",
+      "created_at": "2026-09-08T15:00:00Z", "score": 288,
+      "text": "Per-seat pricing punishes you for inviting stakeholders who only view. Guest access should be free.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "pricing", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "pv4", "thread_id": "t_pricing_viral",
+      "thread_title": "Notion's new per-seat pricing is highway robbery",
+      "url": "https://old.reddit.com/r/Notion/comments/pv/4", "author": "u/anon_founder",
+      "created_at": "2026-09-08T15:33:00Z", "score": 197,
+      "text": "We're evaluating moving off Notion purely because of the inactive-seat billing. It doubled our monthly cost.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "pricing", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "pv5", "thread_id": "t_pricing_viral",
+      "thread_title": "Notion's new per-seat pricing is highway robbery",
+      "url": "https://old.reddit.com/r/Notion/comments/pv/5", "author": "u/cost_conscious",
+      "created_at": "2026-09-08T16:10:00Z", "score": 156,
+      "text": "The billing dashboard doesn't even make it easy to remove inactive seats. Feels intentional.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "pricing", "sentiment": "negative"}, {"aspect": "billing", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "pv6", "thread_id": "t_pricing_viral",
+      "thread_title": "Notion's new per-seat pricing is highway robbery",
+      "url": "https://old.reddit.com/r/Notion/comments/pv/6", "author": "u/ops_lead",
+      "created_at": "2026-09-08T17:41:00Z", "score": 132,
+      "text": "Enterprise pricing went up 30% at renewal with basically no new value. Hard to justify to finance.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "pricing", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "pv7", "thread_id": "t_pricing_viral",
+      "thread_title": "Notion's new per-seat pricing is highway robbery",
+      "url": "https://old.reddit.com/r/Notion/comments/pv/7", "author": "u/tinyteam",
+      "created_at": "2026-09-08T18:05:00Z", "score": 98,
+      "text": "For a 3-person startup the pricing is fine honestly, but I get why bigger teams are furious about inactive seats.",
+      "gold": {"kind": "complaint", "sentiment": "mixed", "aspects": [{"aspect": "pricing", "sentiment": "mixed"}]}
+    },
+    {
+      "source_id": "pv8", "thread_id": "t_pricing_viral",
+      "thread_title": "Notion's new per-seat pricing is highway robbery",
+      "url": "https://old.reddit.com/r/Notion/comments/pv/8", "author": "u/switching_soon",
+      "created_at": "2026-09-08T19:22:00Z", "score": 77,
+      "text": "Canceled our upgrade. The inactive seat thing is the last straw after years of paying.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "pricing", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "pv9", "thread_id": "t_pricing_viral",
+      "thread_title": "Notion's new per-seat pricing is highway robbery",
+      "url": "https://old.reddit.com/r/Notion/comments/pv/9", "author": "u/budget_hawk",
+      "created_at": "2026-09-08T21:12:00Z", "score": 64,
+      "text": "Notion needs a viewer/guest tier that isn't billed as a full seat. Paying for read-only users is absurd.",
+      "gold": {"kind": "feature_request", "sentiment": "negative", "aspects": [{"aspect": "pricing", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "pv10", "thread_id": "t_pricing_viral",
+      "thread_title": "Notion's new per-seat pricing is highway robbery",
+      "url": "https://old.reddit.com/r/Notion/comments/pv/10", "author": "u/late_to_thread",
+      "created_at": "2026-09-09T02:44:00Z", "score": 51,
+      "text": "Adding my voice: inactive seat billing is the worst pricing decision they've made. Full stop.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "pricing", "sentiment": "negative"}]}
+    },
+
+    {
+      "source_id": "ob1a", "thread_id": "t_onb1",
+      "thread_title": "Trying to onboard my team onto Notion and it's painful",
+      "url": "https://old.reddit.com/r/Notion/comments/ob1/a", "author": "u/team_lead_sara",
+      "created_at": "2026-08-21T11:00:00Z", "score": 143,
+      "text": "Rolled Notion out to 20 people. Half of them still can't find their team's pages a month later. The learning curve is brutal.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "onboarding", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "ob1b", "thread_id": "t_onb1",
+      "thread_title": "Trying to onboard my team onto Notion and it's painful",
+      "url": "https://old.reddit.com/r/Notion/comments/ob1/b", "author": "u/reluctant_adopter",
+      "created_at": "2026-08-21T13:30:00Z", "score": 88,
+      "text": "The blank-canvas thing overwhelms new users. They need templates pushed on them, not a scary empty page.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "onboarding", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "ob2a", "thread_id": "t_onb2",
+      "thread_title": "Why is Notion so hard to get started with?",
+      "url": "https://old.reddit.com/r/Notion/comments/ob2/a", "author": "u/newuser_2026",
+      "created_at": "2026-08-29T09:12:00Z", "score": 120,
+      "text": "Spent my whole first week just figuring out databases vs pages vs blocks. Onboarding hand-holding is basically nonexistent.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "onboarding", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "ob2b", "thread_id": "t_onb2",
+      "thread_title": "Why is Notion so hard to get started with?",
+      "url": "https://old.reddit.com/r/Notion/comments/ob2/b", "author": "u/switch_from_docs",
+      "created_at": "2026-08-29T10:40:00Z", "score": 76,
+      "text": "Coming from Google Docs the mental model is totally different and nothing guides you through it. Almost gave up.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "onboarding", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "ob3a", "thread_id": "t_onb3",
+      "thread_title": "New hires can't figure out Notion",
+      "url": "https://old.reddit.com/r/Notion/comments/ob3/a", "author": "u/eng_manager_k",
+      "created_at": "2026-09-02T16:20:00Z", "score": 101,
+      "text": "Every new hire needs a 1:1 walkthrough or they're lost. We shouldn't need internal training just to use a wiki.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "onboarding", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "ob3b", "thread_id": "t_onb3",
+      "thread_title": "New hires can't figure out Notion",
+      "url": "https://old.reddit.com/r/Notion/comments/ob3/b", "author": "u/people_ops",
+      "created_at": "2026-09-02T18:05:00Z", "score": 59,
+      "text": "We built our own onboarding doc because Notion's built-in getting-started flow just isn't enough.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "onboarding", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "ob4a", "thread_id": "t_onb4",
+      "thread_title": "Notion's getting-started templates feel outdated",
+      "url": "https://old.reddit.com/r/Notion/comments/ob4/a", "author": "u/template_hunter",
+      "created_at": "2026-09-11T12:00:00Z", "score": 44,
+      "text": "The default onboarding templates don't reflect how teams actually work now. First impression is confusing.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "onboarding", "sentiment": "negative"}, {"aspect": "templates", "sentiment": "negative"}]}
+    },
+
+    {
+      "source_id": "pf1a", "thread_id": "t_perf1",
+      "thread_title": "Notion has gotten really slow lately",
+      "url": "https://old.reddit.com/r/Notion/comments/pf1/a", "author": "u/speed_matters",
+      "created_at": "2026-09-01T08:30:00Z", "score": 210,
+      "text": "Large databases take 5+ seconds to load now. It didn't used to be this bad. Performance has clearly regressed.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "performance", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "pf1b", "thread_id": "t_perf1",
+      "thread_title": "Notion has gotten really slow lately",
+      "url": "https://old.reddit.com/r/Notion/comments/pf1/b", "author": "u/daily_driver",
+      "created_at": "2026-09-01T09:15:00Z", "score": 132,
+      "text": "Typing lag on long pages is real. Feels sluggish compared to a year ago.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "performance", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "sy1a", "thread_id": "t_sync1",
+      "thread_title": "Sync issues across devices are driving me nuts",
+      "url": "https://old.reddit.com/r/Notion/comments/sy1/a", "author": "u/multi_device",
+      "created_at": "2026-08-25T20:00:00Z", "score": 97,
+      "text": "Edits on my phone take forever to show up on desktop, and sometimes I get conflicting copies. Sync reliability is shaky.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "sync", "sentiment": "negative"}, {"aspect": "reliability", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "sy1b", "thread_id": "t_sync1",
+      "thread_title": "Sync issues across devices are driving me nuts",
+      "url": "https://old.reddit.com/r/Notion/comments/sy1/b", "author": "u/offline_sometimes",
+      "created_at": "2026-08-25T21:30:00Z", "score": 61,
+      "text": "If you lose connection mid-edit it's a coin flip whether your changes survive. Not great for reliability.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "reliability", "sentiment": "negative"}]}
+    },
+
+    {
+      "source_id": "pr1a", "thread_id": "t_praise1",
+      "thread_title": "Notion databases are genuinely incredible",
+      "url": "https://old.reddit.com/r/Notion/comments/pr1/a", "author": "u/db_wizard",
+      "created_at": "2026-08-18T10:00:00Z", "score": 320,
+      "text": "The database + relations + rollups system is the best I've used. Once it clicks, you can build anything.",
+      "gold": {"kind": "praise", "sentiment": "positive", "aspects": [{"aspect": "databases", "sentiment": "positive"}, {"aspect": "flexibility", "sentiment": "positive"}]}
+    },
+    {
+      "source_id": "pr1b", "thread_id": "t_praise1",
+      "thread_title": "Notion databases are genuinely incredible",
+      "url": "https://old.reddit.com/r/Notion/comments/pr1/b", "author": "u/build_it_all",
+      "created_at": "2026-08-18T11:45:00Z", "score": 145,
+      "text": "I replaced five different tools with one Notion workspace. The flexibility is unmatched.",
+      "gold": {"kind": "praise", "sentiment": "positive", "aspects": [{"aspect": "flexibility", "sentiment": "positive"}]}
+    },
+    {
+      "source_id": "pr2a", "thread_id": "t_praise2",
+      "thread_title": "Switched from Confluence, not looking back",
+      "url": "https://old.reddit.com/r/Notion/comments/pr2/a", "author": "u/ex_confluence",
+      "created_at": "2026-09-04T14:00:00Z", "score": 188,
+      "text": "Collaboration is so much smoother than Confluence. Comments, mentions, and shared docs just work for our team.",
+      "gold": {"kind": "praise", "sentiment": "positive", "aspects": [{"aspect": "collaboration", "sentiment": "positive"}]}
+    },
+
+    {
+      "source_id": "pp1a", "thread_id": "t_pricing_pos",
+      "thread_title": "Honestly the pricing is fair for what you get",
+      "url": "https://old.reddit.com/r/Notion/comments/pp1/a", "author": "u/value_investor",
+      "created_at": "2026-09-10T13:00:00Z", "score": 74,
+      "text": "People complain about pricing but for a full wiki + docs + project tool it's cheaper than the stack it replaces. Worth it for our team.",
+      "gold": {"kind": "praise", "sentiment": "positive", "aspects": [{"aspect": "pricing", "sentiment": "positive"}]}
+    },
+    {
+      "source_id": "pp1b", "thread_id": "t_pricing_pos",
+      "thread_title": "Honestly the pricing is fair for what you get",
+      "url": "https://old.reddit.com/r/Notion/comments/pp1/b", "author": "u/roi_focused",
+      "created_at": "2026-09-10T15:20:00Z", "score": 40,
+      "text": "We did the math. Consolidating tools onto Notion actually cut our software spend. The per-seat cost pays for itself.",
+      "gold": {"kind": "praise", "sentiment": "positive", "aspects": [{"aspect": "pricing", "sentiment": "positive"}]}
+    },
+
+    {
+      "source_id": "ai1a", "thread_id": "t_ai",
+      "thread_title": "Notion AI is hit or miss",
+      "url": "https://old.reddit.com/r/Notion/comments/ai1/a", "author": "u/ai_curious",
+      "created_at": "2026-09-06T09:00:00Z", "score": 130,
+      "text": "Notion AI summaries are handy, but it hallucinates on my database content and the extra cost is questionable.",
+      "gold": {"kind": "complaint", "sentiment": "mixed", "aspects": [{"aspect": "ai_features", "sentiment": "mixed"}]}
+    },
+    {
+      "source_id": "ai1b", "thread_id": "t_ai",
+      "thread_title": "Notion AI is hit or miss",
+      "url": "https://old.reddit.com/r/Notion/comments/ai1/b", "author": "u/writes_a_lot",
+      "created_at": "2026-09-06T10:30:00Z", "score": 72,
+      "text": "For drafting it's great, for anything factual I don't trust it. Mixed bag but I use it daily.",
+      "gold": {"kind": "praise", "sentiment": "mixed", "aspects": [{"aspect": "ai_features", "sentiment": "mixed"}]}
+    },
+    {
+      "source_id": "mo1a", "thread_id": "t_mobile",
+      "thread_title": "The mobile app really needs work",
+      "url": "https://old.reddit.com/r/Notion/comments/mo1/a", "author": "u/on_the_go",
+      "created_at": "2026-08-30T19:00:00Z", "score": 156,
+      "text": "The mobile app is clunky for editing databases and feels like an afterthought compared to desktop.",
+      "gold": {"kind": "complaint", "sentiment": "negative", "aspects": [{"aspect": "mobile", "sentiment": "negative"}]}
+    },
+    {
+      "source_id": "of1a", "thread_id": "t_offline",
+      "thread_title": "Wish Notion had real offline mode",
+      "url": "https://old.reddit.com/r/Notion/comments/of1/a", "author": "u/frequent_flyer",
+      "created_at": "2026-09-07T22:00:00Z", "score": 168,
+      "text": "Please give us proper offline mode. On flights I basically can't use Notion at all. Been requested for years.",
+      "gold": {"kind": "feature_request", "sentiment": "negative", "aspects": [{"aspect": "offline", "sentiment": "negative"}]}
+    }
+  ]
+}
