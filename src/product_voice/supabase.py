@@ -87,6 +87,22 @@ class SupabaseClient:
             raise SupabaseError(f"Resource not found or update not permitted", 404)
         return rows[0]
 
+    def delete(self, table: str, token: str, row_id: str) -> dict[str, Any]:
+        """Delete one row by id.
+
+        Runs under the caller's token, not the service key, so row-level
+        security still decides whether this user may delete this row.
+        """
+        response = self.client.delete(
+            f"{self.url}/rest/v1/{table}",
+            params={"id": f"eq.{row_id}"},
+            headers={**self._headers(token), "Prefer": "return=representation"},
+        )
+        rows = self._json(response)
+        if not rows:
+            raise SupabaseError("Resource not found or delete not permitted", 404)
+        return rows[0]
+
     def rpc(self, function: str, token: str, values: dict[str, Any]) -> Any:
         response = self.client.post(
             f"{self.url}/rest/v1/rpc/{function}",

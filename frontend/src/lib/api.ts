@@ -11,6 +11,7 @@ async function request<T>(path: string, token?: string, options: RequestInit = {
     const body = await response.json().catch(() => null)
     throw new Error(body?.detail || `Request failed with status ${response.status}`)
   }
+  if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
 }
 
@@ -20,12 +21,14 @@ export const api = {
   createOrganization: (token: string, name: string) => request<Organization>('/organizations', token, { method: 'POST', body: JSON.stringify({ name }) }),
   products: (token: string, organizationId: string) => request<Product[]>(`/organizations/${organizationId}/products`, token),
   createProduct: (token: string, organizationId: string, data: { name: string; youtube_query?: string }) => request<Product>(`/organizations/${organizationId}/products`, token, { method: 'POST', body: JSON.stringify(data) }),
+  deleteProduct: (token: string, productId: string) => request<void>(`/products/${productId}`, token, { method: 'DELETE' }),
   analytics: (token: string, productId: string) => request<Analytics>(`/products/${productId}/analytics`, token),
-  comments: (token: string, productId: string, search = '', complaintsOnly = false) => {
-    const params = new URLSearchParams({ limit: '40' })
+  comments: (token: string, productId: string, search = '', complaintsOnly = false, sources = '') => {
+    const params = new URLSearchParams({ limit: '12' })
     if (search) params.set('q', search)
     if (complaintsOnly) params.set('complaints_only', 'true')
+    if (sources) params.set('sources', sources)
     return request<ProductComment[]>(`/products/${productId}/comments?${params}`, token)
   },
-  ingest: (token: string, productId: string, data: { max_videos: number; max_comments_per_video: number; include_replies: boolean }) => request<IngestResult>(`/products/${productId}/ingestions`, token, { method: 'POST', body: JSON.stringify(data) }),
+  ingest: (token: string, productId: string, data: { depth: 'quick' | 'standard' | 'deep' }) => request<IngestResult>(`/products/${productId}/ingestions`, token, { method: 'POST', body: JSON.stringify(data) }),
 }

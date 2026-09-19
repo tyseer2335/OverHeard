@@ -104,9 +104,37 @@ class Product(BaseModel):
 
 
 class ProductIngestRequest(BaseModel):
-    max_videos: int = Field(default=5, ge=1, le=50)
-    max_comments_per_video: int = Field(default=200, ge=1, le=1000)
-    include_replies: bool = False
+    """Collection request.
+
+    Deliberately has no per-source knobs. YouTube is one source among several
+    now, so "videos" and "comments per video" no longer describe the work;
+    ``depth`` picks a preset that every connector interprets for itself.
+    """
+
+    depth: str = Field(default="standard", pattern="^(quick|standard|deep)$")
+
+
+class SourceOutcomeModel(BaseModel):
+    source: str
+    status: str          # ok | skipped | failed
+    collected: int = 0
+    kept: int = 0
+    detail: str = ""
+
+
+class CollectionResultModel(BaseModel):
+    """Result of a collection run, reported per source rather than per video."""
+
+    product: str
+    depth: str
+    documents_collected: int
+    documents_indexed: int
+    documents_rejected: int
+    relevant: int
+    sources: list[SourceOutcomeModel]
+    reject_reasons: dict[str, int] = Field(default_factory=dict)
+    plan_reasoning: str = ""
+    used_llm_planner: bool = False
 
 
 class IngestionJob(BaseModel):

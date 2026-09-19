@@ -7,6 +7,7 @@ commentsDisabled case correctly. This only normalizes its output into
 from __future__ import annotations
 
 import logging
+import re
 from typing import Iterable
 
 from ..youtube import CommentsDisabledError, YouTubeAPIError, YouTubeClient
@@ -41,6 +42,21 @@ class YouTubeSource(SourceAdapter):
 
         if not videos:
             return []
+
+        # YouTube search is fuzzy: searching "Product review" returns videos
+        # about hair removal. Pulling hundreds of comments from an unrelated
+        # video poisons the corpus far worse than missing one relevant video,
+        # so require the title to actually name the product before spending
+        # quota on its comments.
+        matching = [v for v in videos if _title_matches(v.title, product)]
+        if matching:
+            videos = matching
+        else:
+            log.warning(
+                "no video title matched %r — keeping top %d unscreened",
+                product,
+                len(videos),
+            )
 
         docs: list[SourceDocument] = []
         # Spread the budget across videos so one chatty video can't eat the run.
@@ -80,3 +96,29 @@ class YouTubeSource(SourceAdapter):
                 log.warning("youtube video %s failed: %s", video.id, exc)
 
         return docs
+
+
+def _title_matches(title: str, product: str) -> bool:
+    """Does this video's title actually name the product?
+
+    Requires every distinctive token of the product name to appear, so
+    "iPhone 18" does not match a video titled "iPhone 17 Review".
+
+    Short numeric tokens are kept deliberately: a version number is often the
+    only thing separating this product from the previous one, and dropping it
+    as "too short" silently collects the wrong generation. They are matched on
+    a word boundary so "18" does not match "2018".
+    """
+    lowered = (title or "").casefold()
+    tokens = [
+        t for t in re.split(r"\W+", product.casefold()) if len(t) > 2 or t.isdigit()
+    ]
+    if not tokens:
+        return True
+    for token in tokens:
+        if token.isdigit():
+            if not re.search(rf"(?<!\d){re.escape(token)}(?!\d)", lowered):
+                return False
+        elif token not in lowered:
+            return False
+    return True

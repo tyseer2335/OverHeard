@@ -6,7 +6,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .analysis import CommentAnalyzer
 from .config import get_settings
+from .collect_service import FeedbackCollectionService
 from .elastic import CommentStore, create_elastic_client
+from .feedback_store import DEFAULT_INDEX, FeedbackStore
 from .service import IngestionService
 from .models import AuthContext
 from .supabase import SupabaseClient, SupabaseError
@@ -54,3 +56,18 @@ def get_auth_context(
     except SupabaseError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return AuthContext(user=user, access_token=credentials.credentials)
+
+
+@lru_cache
+def get_feedback_store() -> FeedbackStore:
+    """The shared, tenant-aware multi-source index."""
+    settings = get_settings()
+    client = create_elastic_client(
+        settings.elastic_api_key, settings.elastic_cloud_id, settings.elasticsearch_url
+    )
+    return FeedbackStore(client, settings.feedback_index or DEFAULT_INDEX)
+
+
+@lru_cache
+def get_collection_service() -> FeedbackCollectionService:
+    return FeedbackCollectionService(get_feedback_store(), CommentAnalyzer())

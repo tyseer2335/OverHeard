@@ -5,6 +5,10 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Bind IPv4 explicitly. Vite otherwise listens on [::1] only, while
+    // browsers on Windows resolve localhost to 127.0.0.1 and get a refused
+    // connection.
+    host: '127.0.0.1',
     port: 3000,
     proxy: {
       '/api': {

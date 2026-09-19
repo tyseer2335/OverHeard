@@ -187,8 +187,16 @@ class FeedbackStore:
         sources: Sequence[str] | None = None,
         language: str | None = None,
         since: str | None = None,
+        relevant_only: bool = True,
     ) -> list[dict]:
         filters: list[dict] = []
+        if relevant_only:
+            # Collection casts wide on purpose, so an off-topic row is expected
+            # rather than exceptional. Excluding relevant=false keeps it out of
+            # the numbers while leaving it indexed and auditable.
+            # must_not (rather than term relevant=true) so rows indexed before
+            # enrichment existed, where relevant is null, still count.
+            filters.append({"bool": {"must_not": {"term": {"relevant": False}}}})
         if organization_id:
             filters.append({"term": {"organization_id": organization_id}})
         if product_id:
@@ -211,8 +219,11 @@ class FeedbackStore:
         language: str | None = None,
         since: str | None = None,
         limit: int = 20,
+        relevant_only: bool = True,
     ) -> list[dict]:
-        filters = self._tenant_filter(organization_id, product_id, sources, language, since)
+        filters = self._tenant_filter(
+            organization_id, product_id, sources, language, since, relevant_only
+        )
         if complaints_only:
             filters.append({"term": {"is_complaint": True}})
         must = [{"match": {"content": query}}] if query else []
@@ -235,6 +246,7 @@ class FeedbackStore:
         sources: Sequence[str] | None = None,
         language: str | None = None,
         since: str | None = None,
+        relevant_only: bool = True,
     ) -> dict[str, Any]:
         """Totals **plus** a per-source breakdown of each one.
 
@@ -242,7 +254,9 @@ class FeedbackStore:
         with a YouTube comment section produces a number whose meaning depends
         entirely on the mix, so the caller always gets both.
         """
-        filters = self._tenant_filter(organization_id, product_id, sources, language, since)
+        filters = self._tenant_filter(
+            organization_id, product_id, sources, language, since, relevant_only
+        )
 
         per_source_aggs = {
             "complaints": {"filter": {"term": {"is_complaint": True}}},

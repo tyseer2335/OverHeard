@@ -21,10 +21,18 @@ import re
 from .analysis import CommentAnalyzer
 from .feedback import FeedbackRecord
 
-#: Sources where every item is collected from a container already known to be
-#: about the product (a video found by searching it, a Steam app's own review
-#: feed). Absence of the product name here is not evidence of irrelevance.
-_CONTEXT_BOUND_SOURCES = {"youtube", "steam"}
+#: Sources whose container is *verified* to be the product, so a comment that
+#: never names it is still on-topic.
+#:
+#: Steam qualifies: the app id is resolved by exact title lookup, so the review
+#: feed is unambiguously that product's. YouTube does NOT — its search is
+#: fuzzy, and trusting it blanket-marked comments about hair removal as
+#: relevant feedback for a product. YouTube now earns relevance per row by
+#: matching the video title instead.
+_CONTEXT_BOUND_SOURCES = {"steam"}
+
+#: Characters that end a sentence, so a capital after one proves nothing.
+_SENTENCE_END = ".!?\n"
 
 #: Words that indicate the product sense rather than the dictionary sense.
 _PRODUCT_CONTEXT = (
@@ -55,6 +63,38 @@ def _has_word(text: str, word: str) -> bool:
     return re.search(rf"(?<!\w){re.escape(word)}(?!\w)", text, re.IGNORECASE) is not None
 
 
+def _mentions_near_context(text: str, term: str, window: int = 140) -> bool:
+    """Is the product term used *near* product vocabulary?
+
+    Checking the whole document is far too weak: a long political post that
+    happens to contain "notion" and, elsewhere, the word "price" would pass.
+    Only text close to the mention is evidence about what the mention means.
+    """
+    lowered = text.casefold()
+    for match in re.finditer(rf"(?<!\w){re.escape(term)}(?!\w)", lowered):
+        start = max(0, match.start() - window)
+        chunk = text[start : match.end() + window]
+        if any(_has_word(chunk, word) for word in _PRODUCT_CONTEXT):
+            return True
+    return False
+
+
+def _appears_as_proper_noun(text: str, term: str) -> bool:
+    """Product names are capitalized; the common noun usually is not.
+
+    "Notion is slow" vs "the notion that" — casing separates the two cheaply
+    and reliably. Sentence-initial position is ignored, since every word is
+    capitalized there regardless of sense.
+    """
+    for match in re.finditer(rf"(?<!\w){re.escape(term)}(?!\w)", text, re.IGNORECASE):
+        if not match.group(0)[:1].isupper():
+            continue
+        prefix = text[: match.start()].rstrip()
+        if prefix and prefix[-1] not in _SENTENCE_END:
+            return True  # capitalized mid-sentence -> proper noun
+    return False
+
+
 def is_relevant(
     text: str,
     product: str,
@@ -75,20 +115,18 @@ def is_relevant(
         return True
 
     lowered = text.casefold()
-    mentioned = any(term in lowered for term in terms)
+    mentioned = [t for t in terms if t in lowered]
 
     if mentioned:
-        # Product-ish vocabulary nearby settles it.
-        if any(_has_word(text, word) for word in _PRODUCT_CONTEXT):
-            return True
-        # Otherwise reject only clear dictionary-sense usage of the name.
-        for term in terms:
-            if not term.isalpha():
-                continue
-            pattern = _DICTIONARY_SENSE.pattern.replace("{term}", re.escape(term))
-            if re.search(pattern, text, re.IGNORECASE):
-                return False
-        return True
+        for term in mentioned:
+            # A multi-word or non-dictionary name is evidence on its own.
+            if len(terms) > 1 or not term.isalpha():
+                return True
+            if _mentions_near_context(text, term):
+                return True
+            if _appears_as_proper_noun(text, term):
+                return True
+        return False
 
     # Not mentioned in the text itself — fall back to the container.
     container = (container_text or "").casefold()

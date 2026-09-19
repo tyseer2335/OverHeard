@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     elastic_cloud_id: str | None = None
     elasticsearch_url: str | None = None
     elastic_index: str = "youtube-product-comments"
+    #: Shared multi-source feedback index the dashboard reads from.
+    feedback_index: str = "product-feedback"
     supabase_url: str = Field(min_length=1)
     supabase_publishable_key: str = Field(min_length=1)
     supabase_secret_key: str = Field(min_length=1)

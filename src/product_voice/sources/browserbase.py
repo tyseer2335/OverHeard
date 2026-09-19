@@ -172,6 +172,15 @@ class BrowserbaseSource(SourceAdapter):
                         **({"proxies": True} if self.use_proxies else {}),
                     )
                 except Exception as exc:  # noqa: BLE001
+                    # 402 means the plan's fetch quota is gone. Every later
+                    # fetch will fail the same way, so stop and say so rather
+                    # than grinding through the list and reporting a silent
+                    # zero that looks like "no opinions found".
+                    if "402" in str(exc):
+                        raise SourceError(
+                            "Browserbase fetch quota exhausted (HTTP 402) — "
+                            "the plan's included fetches are used up"
+                        ) from exc
                     log.warning("fetch failed for %s: %s", url, exc)
                     continue
 

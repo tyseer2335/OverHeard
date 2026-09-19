@@ -21,41 +21,74 @@ export interface Product {
 }
 
 export interface MetricBucket { name: string; count: number }
-export interface TimelineBucket { month: string; count: number }
-export interface VideoMetric { video_id: string; title: string; comment_count: number; average_sentiment: number | null }
+export interface TimelineBucket { month: string; count: number; by_source: MetricBucket[] }
 
-export interface Analytics {
-  product: string
-  total_comments: number
-  complaint_count: number
+/**
+ * Per-source figures. Shown beside every total on purpose: a Steam review feed
+ * and a YouTube comment section carry different audience and ranking bias, so
+ * a pooled number describes the source mix as much as the product.
+ */
+export interface SourceBreakdown {
+  source: string
+  count: number
+  share: number
+  complaints: number
   complaint_rate: number
   average_sentiment: number | null
-  average_likes: number | null
+  distinct_authors: number
+  top_issues: MetricBucket[]
+}
+
+export interface Analytics {
+  total: number
+  complaints: number
+  complaint_rate: number
+  average_sentiment: number | null
+  distinct_authors: number
+  by_source: SourceBreakdown[]
+  by_content_type: MetricBucket[]
+  by_language: MetricBucket[]
   sentiment: MetricBucket[]
   issues: MetricBucket[]
   timeline: TimelineBucket[]
-  videos: VideoMetric[]
 }
 
+/** A normalized feedback row, identical in shape whatever source produced it. */
 export interface ProductComment {
-  id: string
-  text: string
-  author: string
-  video_id: string
-  video_title: string
-  like_count: number
-  published_at: string
-  sentiment: 'positive' | 'neutral' | 'negative'
-  sentiment_score: number
-  is_complaint: boolean
+  external_id: string
+  source: string
+  content: string
+  content_type: string
+  url: string
+  author_hash: string
+  language: string
+  published_at: string | null
+  engagement: { score: number; replies: number; voted_up?: boolean | null; playtime_hours?: number | null }
+  sentiment: 'positive' | 'neutral' | 'negative' | null
+  sentiment_score: number | null
+  is_complaint: boolean | null
   issue_categories: string[]
+  relevant: boolean | null
+  source_metadata: Record<string, unknown>
+}
+
+export interface SourceOutcome {
+  source: string
+  status: 'ok' | 'skipped' | 'failed'
+  collected: number
+  kept: number
+  detail: string
 }
 
 export interface IngestResult {
   product: string
-  query: string
-  videos_found: number
-  videos_processed: number
-  comments_indexed: number
-  videos_skipped: Array<{ video_id: string; reason: string }>
+  depth: string
+  documents_collected: number
+  documents_indexed: number
+  documents_rejected: number
+  relevant: number
+  sources: SourceOutcome[]
+  reject_reasons: Record<string, number>
+  plan_reasoning: string
+  used_llm_planner: boolean
 }

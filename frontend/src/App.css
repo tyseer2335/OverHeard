@@ -83,3 +83,56 @@
 @media (max-width: 540px) {
   .auth-page { padding: 0; }.auth-form-side { min-height: 100vh; border-radius: 0; padding-inline: 24px; }.metric-grid { grid-template-columns: 1fr; }.page-heading { display: block; }.heading-actions { margin-top: 17px; }.insight-banner { grid-template-columns: 38px 1fr; }.insight-banner button { display: none; }.sentiment-content { gap: 5px; padding-inline: 8px; }.donut-wrap { width: 150px; height: 150px; }.comment-row { grid-template-columns: 34px 1fr; }.comment-likes { display: none; }.field-row { grid-template-columns: 1fr; }.modal { padding: 22px; }.onboarding-card { padding: 26px 20px; }.topbar .breadcrumb span, .topbar .breadcrumb b { display: none; }
 }
+
+/* Collection depth picker — selectable cards, not raw radios.
+   These are <label> elements, so they must opt out of the global
+   `.modal-form label { display: grid }` rule or the radio and the text
+   stack on top of each other. */
+.depth-options { display: grid; gap: 8px; }
+.depth-option { display: grid !important; grid-template-columns: 18px 1fr; align-items: start; gap: 11px !important; border: 1px solid #e0e1da; border-radius: 11px; padding: 13px 14px; cursor: pointer; background: #fff; transition: border-color .16s, background .16s, box-shadow .16s; font-weight: 500 !important; }
+.depth-option:hover { border-color: #cfc8f0; background: #fcfcff; }
+.depth-option.active { border-color: #8a7de0; background: #f8f7ff; box-shadow: 0 0 0 3px rgba(103,88,215,.09); }
+.depth-option input { width: 16px !important; height: 16px !important; margin-top: 2px; accent-color: var(--violet); }
+.depth-option strong { display: block; font-size: 12px; color: var(--ink); }
+.depth-option small { display: block; color: #969890; font-size: 10.5px; font-weight: 400; line-height: 1.45; margin-top: 3px; }
+
+/* Source breakdown rows. The panel used to render <a> links to YouTube
+   videos; sources are not links, so they render as divs and need their
+   own rule rather than inheriting `.source-list a`. */
+.source-list .source-row { display: grid; grid-template-columns: 28px 1fr; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #f0f0ec; }
+.source-list .source-row:last-child { border-bottom: 0; }
+.source-list .source-row strong { font-size: 11px; text-transform: capitalize; }
+.source-list .source-row span { color: #989a92; font-size: 9px; margin-top: 4px; line-height: 1.5; white-space: normal; }
+
+/* Per-row provenance in the feedback list. */
+.source-chip { color: var(--violet); background: var(--violet-soft); border-radius: 5px; padding: 2px 6px; font-size: 8px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; flex-shrink: 0; }
+.comment-tags .offtopic-tag { color: #8a6d1f; background: #fbf3dd; }
+.comment-likes { text-decoration: none; }
+a.comment-likes:hover { color: var(--violet); }
+
+/* Product switcher in the page heading. */
+.product-switch { display: flex !important; align-items: center; gap: 7px; height: 38px; padding: 0 10px; border: 1px solid #e0e1da; border-radius: 10px; background: #fff; color: #686a64; font-size: 11px; font-weight: 700; cursor: pointer; }
+.product-switch:hover { border-color: #cfc8f0; }
+.product-switch select { border: 0; outline: 0; background: transparent; color: var(--ink); font: 700 12px inherit; cursor: pointer; padding-right: 2px; max-width: 170px; appearance: none; }
+.product-switch > svg:first-child { color: var(--violet); flex-shrink: 0; }
+.product-switch > svg:last-child { color: #aaaca5; flex-shrink: 0; }
+
+/* Product rows in the sidebar: select on the left, delete on the right.
+   The delete control stays hidden until hover/focus so the nav does not read
+   as a row of destructive buttons. */
+.product-nav-row { display: flex; align-items: center; border-radius: 8px; }
+.product-nav-row:hover, .product-nav-row.active { background: #2a2b32; }
+.product-nav-main { flex: 1; min-width: 0; height: 35px; padding: 0 4px 0 12px; border: 0; border-radius: 8px; color: #96989f; background: transparent; display: flex; align-items: center; gap: 10px; font-size: 12px; text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.product-nav-row:hover .product-nav-main, .product-nav-row.active .product-nav-main { color: #fff; }
+.product-delete { width: 28px; height: 28px; margin-right: 4px; border: 0; border-radius: 7px; background: transparent; color: #6f717a; display: grid; place-items: center; opacity: 0; transition: opacity .14s, color .14s, background .14s; flex-shrink: 0; }
+.product-nav-row:hover .product-delete, .product-delete:focus-visible { opacity: 1; }
+.product-delete:hover { color: #ef8b80; background: #3a2b2b; }
+
+/* Destructive confirmation. */
+.danger-body { display: grid; grid-template-columns: 42px 1fr; gap: 13px; align-items: start; margin-top: 22px; }
+.danger-icon { width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; color: var(--coral); background: var(--coral-soft); }
+.danger-body p { color: #62645d; font-size: 12.5px; line-height: 1.6; margin: 3px 0 0; }
+.danger-body strong { color: var(--ink); }
+button.danger { background: #c9503f; color: #fff; border: 1px solid #c9503f; }
+button.danger:hover:not(:disabled) { background: #b34635; border-color: #b34635; }
+button.danger:disabled { opacity: .65; }

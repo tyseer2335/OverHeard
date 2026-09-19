@@ -98,20 +98,22 @@ def _looks_like_game(product: str) -> bool:
     return any(m in product.casefold() for m in markers)
 
 
-def fallback_plan(product: str) -> CollectionPlan:
+def fallback_plan(product: str, max_queries: int = 5) -> CollectionPlan:
     """Rule-based plan used when no LLM is available.
 
     Deliberately broad rather than clever: without a model we cannot tell what
     a product is, so we cast wide and let each adapter return nothing if it
     has no match.
     """
+    # Ordered most-to-least valuable so a small max_queries still gets the
+    # broad sweep plus the complaint angle, which is what the analysis needs.
     queries = [
         product,
         f"{product} review",
         f"{product} problems",
         f"{product} complaints",
         f"{product} vs alternatives",
-    ]
+    ][:max_queries]
     names = ["hackernews", "youtube", "browserbase", "lemmy"]
     if _looks_like_game(product):
         names.append("steam")
