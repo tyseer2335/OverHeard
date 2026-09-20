@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.tools/
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+elevenlabs_agent.json
+.backend*.log
+.frontend*.log
+.qa/
+
+# collected data artifacts
+*.jsonl
+data/

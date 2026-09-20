@@ -1,0 +1,55 @@
+flowchart TB
+%% Overheard - system architecture
+%% Corrections against the earlier draft of this diagram:
+%%   - Reddit removed. It is not reachable: unauthenticated requests return
+%%     403, and with residential proxies the response is HTTP 200 carrying a
+%%     "Prove your humanity" CAPTCHA. Reddit opinion still arrives indirectly,
+%%     via aggregator pages that quote those threads.
+%%   - Hacker News, Steam and Lemmy added. They are live sources and were
+%%     missing entirely.
+%%   - OpenAI added. It was absent, yet it both plans collection and performs
+%%     all classification - the two places judgement happens.
+%%   - Sentiment moved out of the Python box. Python cleans, dedupes and
+%%     aggregates; the model classifies.
+%%   - ElevenLabs shown as live. The integration lives on a separate branch
+%%     and is not in this one, so the Vox panel here is still a local mockup.
+%%     Worth confirming the branches are merged before demoing the voice.
+ subgraph Sources["DATA SOURCES"]
+        YouTube["`**YOUTUBE DATA API**<br>Comments under product videos`"]
+        HackerNews["`**HACKER NEWS**<br>Algolia search, ~1000 per query`"]
+        Steam["`**STEAM REVIEWS**<br>Games only - carries ground truth`"]
+        Browserbase["`**BROWSERBASE**<br>Web search and page fetch`"]
+        Lemmy["`**LEMMY**<br>Federated community comments`"]
+  end
+ subgraph Intelligence["OPENAI - gpt-5.6-sol"]
+        Planner["`**COLLECTION PLANNER**<br>Chooses sources, writes queries per source`"]
+        Analyzer["`**FEEDBACK ANALYZER**<br>Relevance, sentiment, intent, issue category<br>Batched 10 per call`"]
+  end
+ subgraph Backend["API AND ORCHESTRATION"]
+        FastAPI["`**FASTAPI**<br>Auth, tenancy, collection jobs`"]
+  end
+ subgraph Processing["DATA PROCESSING - Python"]
+        Clean["`**CLEAN AND NORMALIZE**<br>Dedupe by id and by text hash<br>Junk filter with a rejects log<br>One schema for every source`"]
+  end
+ subgraph Databases["DATABASES"]
+        Elasticsearch["`**ELASTICSEARCH**<br>One tenant-aware feedback index<br>Aggregations and evidence retrieval`"]
+        Supabase["`**SUPABASE**<br>Users, orgs, products, job state`"]
+  end
+ subgraph Experience["FRONTEND - React"]
+        React["`**DASHBOARD**<br>Ranked pain points<br>Source breakdown<br>Evidence with citations`"]
+        Vox["`**VOX ASSISTANT**<br>Ask questions, challenge a claim`"]
+        ElevenLabs["`**ELEVENLABS**<br>Conversational voice agent`"]
+  end
+    FastAPI -- 1 plan --> Planner
+    Planner -- source and query list --> FastAPI
+    FastAPI -- 2 collect --> YouTube & HackerNews & Steam & Browserbase & Lemmy
+    YouTube & HackerNews & Steam & Browserbase & Lemmy -- raw documents --> Clean
+    Clean -- 3 classify --> Analyzer
+    Analyzer -- labelled records --> Clean
+    Clean -- 4 index --> Elasticsearch
+    Supabase <-- auth and ownership --> FastAPI
+    Elasticsearch -- 5 analytics and evidence --> FastAPI
+    FastAPI --> React
+    React --> Vox
+    Vox <--> ElevenLabs
+    ElevenLabs -- grounded answers with citations --> FastAPI

@@ -1,0 +1,101 @@
+flowchart LR
+%% Overheard - detailed architecture.
+%%
+%% Solid boxes are built and running. Dashed boxes are designed but not yet
+%% implemented - kept on the diagram because they are the roadmap, but marked
+%% so nobody demos a box that does not exist.
+%%
+%% Corrections against the earlier draft:
+%%   - Reddit, X and Instagram removed as connectors. All three were tested and
+%%     are unreachable: Reddit returns 403, and behind residential proxies a
+%%     200 carrying a CAPTCHA; X's syndication endpoint returns 429 even
+%%     proxied; Instagram's embed carries no caption text. Reddit and X opinion
+%%     still reaches the corpus indirectly through pages that quote them, which
+%%     is what the Browserbase connector collects.
+%%   - Hacker News, Steam and Lemmy added - three live connectors that were
+%%     missing.
+%%   - OpenAI added. Relevance, sentiment, feedback type and issue category are
+%%     produced by the model, not by Python. Python cleans, dedupes, indexes
+%%     and aggregates.
+%%   - "Ingestion Scheduler" marked planned. Collection is user-triggered via
+%%     POST /products/{id}/ingestions; there is no cron or background worker.
+%%   - "Checkpoints" marked planned. ingestion_jobs stores status and counts,
+%%     not a resumable cursor. Re-running is safe anyway, because Elasticsearch
+%%     ids are deterministic and a replay overwrites rather than duplicates.
+%%   - Background analysis (topics, clusters, trends) marked planned.
+%%   - Raw and enriched feedback merged into one index. There is a single
+%%     tenant-aware `product-feedback` index; the original text and its
+%%     enrichment live on the same document.
+ subgraph Frontend["React Frontend"]
+        AuthUI["Login / Sign up"]
+        Dashboard["Analytics Dashboard"]
+        VoiceUI["Voice Assistant"]
+  end
+ subgraph ControlPlane["Supabase - Control Plane"]
+        SupaAuth["Authentication"]
+        TenantDB["Organizations & Memberships"]
+        ProductDB["Products & Search Query"]
+        JobsDB["Ingestion Jobs<br>status · counts · errors"]
+        Checkpoints["Resumable Checkpoints"]
+  end
+ subgraph Sources["External Data Sources"]
+        YouTube["YouTube Data API<br>comments under product videos"]
+        HackerNews["Hacker News<br>Algolia, ~1000 per query"]
+        Steam["Steam Reviews<br>games only · carries ground truth"]
+        Browserbase["Browserbase<br>web search + page fetch"]
+        Lemmy["Lemmy<br>federated communities"]
+  end
+ subgraph Intelligence["OpenAI - gpt-5.6-sol"]
+        Planner["Collection Planner<br>picks sources · writes queries"]
+        Classifier["Feedback Classifier<br>relevance · sentiment · type · issues<br>batched 10 per call"]
+  end
+ subgraph Backend["FastAPI Backend"]
+        API["Authenticated API"]
+        Collector["Collection Orchestrator<br>user-triggered"]
+        Scheduler["Ingestion Scheduler<br>recurring runs"]
+        Connectors["Source Connectors<br>one common document shape"]
+        Normalizer["Normalize & Deduplicate<br>id · text hash · junk · rejects log"]
+        AdvancedAnalysis["Background Analysis<br>topics · clusters · trends"]
+        Analytics["Analytics & Search Service<br>source-balanced retrieval"]
+        AgentTools["Voice Agent Tools"]
+  end
+ subgraph Search["Elasticsearch - Analytics Plane"]
+        FeedbackIndex["product-feedback<br>one tenant-aware index<br>original text + enrichment"]
+        Aggregations["Search & Aggregations<br>per-source breakdown"]
+  end
+    CompanyUser["Company User"] --> AuthUI & Dashboard & VoiceUI
+    AuthUI --> SupaAuth
+    SupaAuth --> TenantDB
+    TenantDB --> API
+    ProductDB --> API & Collector
+    Dashboard --> API
+    API --> Collector & Analytics
+
+    Collector <--> Planner
+    Collector --> Connectors
+    JobsDB <--> Collector
+    Scheduler -.-> Collector
+    Checkpoints -.-> Collector
+
+    YouTube --> Connectors
+    HackerNews --> Connectors
+    Steam --> Connectors
+    Browserbase --> Connectors
+    Lemmy --> Connectors
+
+    Connectors --> Normalizer
+    Normalizer <--> Classifier
+    Normalizer --> FeedbackIndex
+    FeedbackIndex -.-> AdvancedAnalysis
+    AdvancedAnalysis -.-> FeedbackIndex
+
+    Analytics <--> Aggregations
+    Aggregations --> FeedbackIndex
+    Analytics --> Dashboard & AgentTools
+
+    VoiceUI <--> ElevenLabs["ElevenLabs Conversational Agent"]
+    ElevenLabs <--> AgentTools
+
+    style Scheduler stroke-dasharray: 5 5
+    style Checkpoints stroke-dasharray: 5 5
+    style AdvancedAnalysis stroke-dasharray: 5 5
