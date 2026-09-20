@@ -1,385 +1,369 @@
-# Product Voice
+# Overheard
 
-A multi-tenant product-feedback service that finds YouTube product-review videos,
-collects their comments, enriches them with lightweight sentiment and issue
-categories, and stores them in Elasticsearch for search and analytics. Supabase
-provides user authentication, organizations, products, RLS, and ingestion history.
+**Turn scattered public feedback into ranked, evidence-backed product decisions.**
 
-## What it does
+Point it at a product name. It finds what people are actually saying across five
+platforms, throws away the noise, works out what they mean, and shows you ranked
+pain points — each backed by real quotes you can click through to the original.
+Then you can ask it questions out loud.
 
-1. Searches YouTube for a product query (default: `<product> review problems`).
-2. Fetches top-level comments, optionally including replies.
-3. Adds sentiment, a complaint flag, and issue categories.
-4. Bulk-indexes documents using a product/comment composite ID, so reruns are
-   idempotent without losing a comment found for more than one product.
-5. Exposes product analytics and searchable complaint examples through FastAPI.
+---
 
-The enrichment is a transparent MVP heuristic. Original text is retained so it can
-later be reprocessed with Elastic inference, embeddings, or a custom classifier.
+## The problem
 
-## Setup
+A product manager wants to know what customers really think. Today that means
+either reading scattered comments by hand for a week, or paying for a tool that
+scrapes one platform and hands back a sentiment score with no receipts.
 
-You need Python 3.11+, a YouTube Data API v3 key, and Elasticsearch.
+A number nobody can trace is not a decision. **Evidence is the product.**
 
-```powershell
-py -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-Copy-Item .env.example .env
+## What makes it different
+
+**It reads, it does not keyword-match.** "I love how it deletes my data" is
+negative. "This thing is sick" is praise. A lexicon gets both backwards.
+
+**It knows what is not about your product.** Collecting "Notion" from YouTube
+returns comments about a *song* called Notion. Those get rejected, along with
+"first!!" and "great video man" — comments about the video rather than the
+product. That noise was most of what the dashboard used to show.
+
+**It refuses to pool incomparable sources.** On one product, YouTube's top
+engagement scores were 8843/8288/7453 while Steam's were 4/3/2. Sorting on that
+number globally returned 100% YouTube and the other sources never reached the
+screen. Every metric now ships with a per-source breakdown, and evidence is
+balanced across sources.
+
+**It can be checked.** Steam publishes `voted_up` — the reviewer's own verdict.
+That gives a ground truth to score the analysis against, which is how we knew
+the old lexicon called 55% of genuinely negative reviews positive.
+
+---
+
+## Architecture
+
+![Architecture](assets/D1.png)
+
+```mermaid
+flowchart TB
+ subgraph Sources["DATA SOURCES"]
+        YouTube["YOUTUBE DATA API<br>Comments under product videos"]
+        HackerNews["HACKER NEWS<br>Algolia search, ~1000 per query"]
+        Steam["STEAM REVIEWS<br>Games only, carries ground truth"]
+        Browserbase["BROWSERBASE<br>Web search and page fetch"]
+        Lemmy["LEMMY<br>Federated community comments"]
+  end
+ subgraph Intelligence["OPENAI - gpt-5.6-sol"]
+        Planner["COLLECTION PLANNER<br>Chooses sources, writes queries"]
+        Analyzer["FEEDBACK ANALYZER<br>Relevance, sentiment, intent, issues"]
+  end
+ subgraph Backend["API AND ORCHESTRATION"]
+        FastAPI["FASTAPI<br>Auth, tenancy, collection jobs"]
+  end
+ subgraph Processing["DATA PROCESSING - Python"]
+        Clean["CLEAN AND NORMALIZE<br>Dedupe, junk filter, rejects log<br>One schema for every source"]
+  end
+ subgraph Databases["DATABASES"]
+        Elasticsearch["ELASTICSEARCH<br>One tenant-aware feedback index"]
+        Supabase["SUPABASE<br>Users, orgs, products, job state"]
+  end
+ subgraph Experience["FRONTEND - React"]
+        React["DASHBOARD<br>Ranked pain points, evidence"]
+        Vox["VOX ASSISTANT<br>Ask questions, challenge a claim"]
+        ElevenLabs["ELEVENLABS<br>Conversational voice agent"]
+  end
+    FastAPI -- 1 plan --> Planner
+    Planner -- source and query list --> FastAPI
+    FastAPI -- 2 collect --> YouTube & HackerNews & Steam & Browserbase & Lemmy
+    YouTube & HackerNews & Steam & Browserbase & Lemmy -- raw documents --> Clean
+    Clean -- 3 classify --> Analyzer
+    Analyzer -- labelled records --> Clean
+    Clean -- 4 index --> Elasticsearch
+    Supabase <-- auth and ownership --> FastAPI
+    Elasticsearch -- 5 analytics and evidence --> FastAPI
+    FastAPI --> React
+    React --> Vox
+    Vox <--> ElevenLabs
+    ElevenLabs -- grounded answers with citations --> FastAPI
 ```
 
-Edit `.env`: set the YouTube, Elasticsearch, and Supabase values shown in
-`.env.example`. For Elastic Cloud, set `ELASTIC_CLOUD_ID`; for another deployment,
-set `ELASTICSEARCH_URL`. Never commit `.env`; Git ignores it.
+A [detailed version](assets/architecture-detailed.mmd) ([image](assets/D2.png))
+shows every component, with planned-but-unbuilt pieces drawn dashed. The
+[collection sequence](assets/collection-flow.mmd) ([image](assets/D3.png))
+walks through a single run.
 
-### Initialize Supabase
+### Exactly two model calls per run
 
-Open the Supabase SQL Editor for your project and run the complete contents of:
+One to **plan** (which sources, what queries) and one to **classify** (in
+batches of 10). Everything in between is ordinary retrieval, deduplication and
+aggregation. Remove the model and the pipeline still runs — it just picks worse
+queries and classifies worse.
 
-```text
+### Three stores, on purpose
+
+| Store | Holds | Why separate |
+|---|---|---|
+| **Supabase** | users, orgs, products, job state | Needs transactions, foreign keys, row-level security |
+| **Elasticsearch** | the feedback corpus, all analytics | Needs full-text search and aggregations at scale |
+| **OpenAI** | nothing | Stateless; never a dependency for reads |
+
+---
+
+## Quick start
+
+### Prerequisites
+
+| | Version | Notes |
+|---|---|---|
+| Python | 3.11+ | |
+| Node | **20.19+ or 22+** | Vite 8 will not start on older Node |
+| Elasticsearch | 8.15+ | Elastic Cloud free trial works |
+| Supabase | — | Free tier works |
+
+### 1. Install
+
+```bash
+git clone https://github.com/tyseer2335/HTN2026.git
+cd HTN2026
+
+pip install -e ".[dev,browserbase]"
+
+cd frontend && npm install && cd ..
+```
+
+> **Windows PowerShell:** if `npm` is blocked by the execution policy, use
+> `npm.cmd install`, or run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+> once. Git Bash avoids the issue entirely.
+
+### 2. Configure
+
+```bash
+cp .env.example .env
+```
+
+Fill in `.env`. **It must be named exactly `.env`** — Notepad silently saves
+`.env.txt`, which will not load. Nothing is read from `.env.example`; that file
+is only a template.
+
+#### Required
+
+| Variable | Where to get it |
+|---|---|
+| `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) — planning + analysis |
+| `YOUTUBE_API_KEY` | Google Cloud Console → enable **YouTube Data API v3** → create API key (free) |
+| `ELASTIC_CLOUD_ID` + `ELASTIC_API_KEY` | Elastic Cloud deployment. Use `ELASTICSEARCH_URL` instead for self-hosted |
+| `SUPABASE_URL`<br>`SUPABASE_PUBLISHABLE_KEY`<br>`SUPABASE_SECRET_KEY` | Supabase → Project Settings → API. Publishable is the **anon** key, secret is **service_role** |
+
+#### Optional
+
+| Variable | Effect if unset |
+|---|---|
+| `BROWSERBASE_API_KEY` + `BROWSERBASE_PROJECT_ID` | Browserbase source is skipped |
+| `ELEVENLABS_*`, `PUBLIC_BASE_URL` | Voice agent disabled, everything else works |
+| `AUTHOR_HASH_SALT` | Uses a dev default. **Set this in production** |
+| `LLM_ANALYSIS_BATCH` (default 10)<br>`LLM_ANALYSIS_WORKERS` (default 12) | Analysis throughput. Lower workers if you hit 429s |
+
+A source without credentials is **skipped and reported**, never fatal. You can
+run the whole system with only `OPENAI_API_KEY` and get Hacker News and Lemmy.
+
+### 3. Initialize Supabase
+
+In the Supabase SQL Editor, run:
+
+```
 supabase/migrations/202609190001_initial_tenant_schema.sql
 ```
 
-The migration creates organizations, memberships, products, ingestion jobs, and
-their Row Level Security policies. Create at least one user through Supabase Auth,
-then use that user's access token as `Authorization: Bearer <token>` when calling
-the API. The Supabase secret key must remain server-side.
+This creates `organizations`, `organization_members`, `products` and
+`ingestion_jobs` with row-level security.
 
-## Run it
-
-The CLI remains available for development and non-tenant imports:
-
-```powershell
-product-voice "Microsoft Teams" --max-videos 5 --max-comments 200
-```
-
-API:
-
-```powershell
-uvicorn product_voice.api:app --reload
-```
-
-### React dashboard
-
-The React/TypeScript frontend lives in `frontend/` and uses Supabase Auth, Recharts,
-and the authenticated FastAPI endpoints. The repository includes a project-local
-Node.js toolchain, so no system-wide Node installation is required.
-
-From the repository root:
-
-```powershell
-.\scripts\dev.ps1
-```
-
-This starts FastAPI on `http://127.0.0.1:8000` and the dashboard on
-`http://localhost:3000`. Stop the script with Ctrl+C. For email-confirmation links,
-set the Supabase Auth **Site URL** to `http://localhost:3000`.
-
-To validate a production frontend build:
-
-```powershell
-$node = Resolve-Path .\.tools\node-v*-win-x64
-$env:Path = "$node;$env:Path"
-Set-Location frontend
-npm run lint
-npm run build
-```
-
-Open `http://127.0.0.1:8000/docs` for raw API documentation. Except for `/health`
-and `/config/public`, API routes require a Supabase user access token through the
-Swagger **Authorize** button.
-
-## Endpoints
-
-- `GET /me` — validate the current Supabase user.
-- `GET/POST /organizations` — list or create organizations.
-- `GET/POST /organizations/{organization_id}/products` — manage tracked products.
-- `POST /products/{product_id}/ingestions` — ingest comments for an authorized product.
-- `GET /products/{product_id}/ingestions` — ingestion history.
-- `GET /products/{product_id}/analytics` — tenant-filtered product analytics.
-- `GET /products/{product_id}/comments` — tenant-filtered comment search.
-- `GET /health` — service health.
-
-## Ask Vox voice agent
-
-Set `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`, and a random
-`ELEVENLABS_TOOL_SECRET` in `.env`. Expose the API at the HTTPS URL in
-`PUBLIC_BASE_URL`, then run `python scripts/setup_voice_agent.py` to point the
-agent's three read-only tools at this API. The Ask Vox side panel uses a
-Supabase-authenticated, product-specific signed URL. Its tool calls use a
-short-lived signed scope and read the same multi-source feedback index as the
-dashboard. A temporary tunnel works for local demos; update the agent URL when
-the tunnel changes.
-
-## Important notes
-
-- YouTube `search.list` costs 100 quota units per call; `commentThreads.list` costs
-  1 unit. Start with a small video limit.
-- Replies are off by default because fetching all replies takes additional calls.
-- Videos with disabled comments are reported and skipped.
-- Public comments may contain personal data. Define retention and deletion rules
-  before production use, and follow the YouTube API Services Terms.
-
-## Test
-
-```powershell
-pytest
-```
-
-## Multi-source collection
-
-Collection is source-agnostic and runs **without Elasticsearch or Supabase**, so
-the data layer can be developed and demoed before storage exists.
+### 4. Run
 
 ```bash
-pip install -e ".[dev,browserbase]"
+# terminal 1 - backend on port 8000 (the Vite proxy expects this port)
+PYTHONPATH=src python -m uvicorn product_voice.api:app --reload --port 8000
 
-# all available sources -> JSONL + a rejects log
-python -m product_voice.collect_cli "Sony WH-1000XM5"
-
-# pick sources explicitly
-python -m product_voice.collect_cli "Notion" --sources hackernews,browserbase \
-    --browserbase-targets reddit,reviews --limit 40 --out data/notion.jsonl
+# terminal 2 - frontend
+cd frontend && npm run dev
 ```
 
-Sources missing credentials are **skipped and reported**, never fatal:
+Open **http://localhost:3000**, sign up, create a workspace and a product, then
+click **Collect feedback**.
 
-```
-per source:
-  [+] hackernews   ok       collected=40 kept=40
-  [-] youtube      skipped   (YOUTUBE_API_KEY not set)
-  [+] browserbase  ok       collected=40 kept=40
-```
+> Settings are cached at startup. **Any `.env` change needs a backend restart.**
 
-### Sources
+---
 
-| Source | Needs | Notes |
-|---|---|---|
-| `hackernews` | nothing | Algolia API, free, most reliable |
-| `youtube` | `YOUTUBE_API_KEY` | wraps the existing `YouTubeClient` |
-| `browserbase` | `BROWSERBASE_API_KEY` + `stagehand` | Browserbase Search + Fetch |
+## Voice agent (optional)
 
-Every adapter returns a `SourceDocument`, so nothing downstream cares where a
-row came from. `bridge.to_enriched_comments()` converts a run into the
-`EnrichedComment` rows the Elastic store and API already use.
-
-### What Browserbase can and cannot reach
-
-Measured 2026-09-19, not assumed:
-
-- **Reddit direct — blocked.** `fetch` returns HTTP 403 without proxies. *With*
-  `proxies=True` it returns HTTP 200, but the body is Reddit's "Prove your
-  humanity" CAPTCHA. Proxies beat the IP block, then lose to the bot challenge.
-- **X / Instagram / TikTok — blocked.** Login walls. No proxy fixes a login
-  wall; only a logged-in session would, which is a ToS violation.
-- **What works:** Browserbase `search()` surfaces Reddit mirrors, aggregators
-  (`whatredditthinks.com`) and review roundups that quote those threads, and
-  `fetch()` renders them to markdown. Reddit *opinion* reaches the corpus even
-  though reddit.com does not. Walled domains are skipped up front to save quota.
-
-Note `proxies=True` costs quota and requires a paid Developer plan for general
-use; it is off by default (`--use-proxies` to enable).
-
-### Ambiguous product names
-
-Product names that are common English words pull in false positives — "Notion"
-matches "the notion that...". Measured on 20 Hacker News hits:
-
-| `--query` | ambiguous hits |
-|---|---|
-| `Notion` | 18 / 20 |
-| `Notion.so` | 6 / 20 |
-| `Notion app workspace` | 3 / 20 |
-
-Pass a more specific `--query` for names like this.
-
-### Inspecting what you collected
+The Vox panel works without ElevenLabs — it just will not speak. To enable it,
+note that the agent's tools are **webhooks ElevenLabs calls from its own
+servers**, so your machine must be reachable from the internet.
 
 ```bash
-python -m product_voice.inspect_cli data/notion.jsonl
-python -m product_voice.inspect_cli data/notion.jsonl --complaints --samples 10
-python -m product_voice.inspect_cli data/notion.jsonl --source browserbase
-python -m product_voice.inspect_cli data/notion.jsonl --rejects
+# 1. expose port 8000 publicly
+cloudflared tunnel --url http://localhost:8000     # or: ngrok http 8000
+
+# 2. in .env
+ELEVENLABS_API_KEY=sk_...
+ELEVENLABS_TOOL_SECRET=any-random-string-you-invent
+PUBLIC_BASE_URL=https://<your-tunnel-url>
+
+# 3. create an agent in the ElevenLabs dashboard, put its id in
+ELEVENLABS_AGENT_ID=agent_...
+
+# 4. register the tools against your public URL
+PYTHONPATH=src python scripts/setup_voice_agent.py
+
+# 5. restart the backend
 ```
 
-Prints source/domain breakdowns, date coverage, a duplicate-survivor warning,
-and readable samples with citation URLs. Samples are spread across the corpus
-rather than taken from the top, so one source can't fill the output.
+Verify with `curl localhost:8000/voice/config` — it should report
+`{"configured": true}`.
 
-## Agent-planned collection (high volume)
+> **The tunnel URL is baked into the agent.** Quick tunnels get a new random URL
+> on every restart. If the tunnel restarts, update `PUBLIC_BASE_URL`, re-run the
+> setup script, and restart the backend — otherwise the agent still talks but
+> its tools 404 silently, and it answers from imagination instead of your data.
 
-`--plan` asks the LLM which sources fit the product and to write several
-queries per source, then runs every (source, query) pair through one shared
-dedupe pass.
+---
+
+## Command line
+
+The pipeline runs without the web app, which is useful for building a corpus
+before a demo.
 
 ```bash
-python -m product_voice.collect_cli "Notion" --plan --limit 500
-python -m product_voice.collect_cli "Cyberpunk 2077" --plan --limit 500
+# collect to JSONL, no Elastic or Supabase needed
+python -m product_voice.collect_cli "Cyberpunk 2077" --plan --limit 400
+
+# look at what came back
+python -m product_voice.inspect_cli cyberpunk-2077.jsonl --complaints
+python -m product_voice.inspect_cli cyberpunk-2077.jsonl --rejects
+
+# collect, analyze and index in one pass
+python -m product_voice.index_cli "Cyberpunk 2077" --plan --org acme --product-id cp2077
+
+# read it back
+python -m product_voice.index_cli "Cyberpunk 2077" --analytics --org acme --product-id cp2077
 ```
 
-Measured on "Notion": **83 docs → 2,146 docs**. Without an `OPENAI_API_KEY` it
-falls back to a rule-based plan, so collection never depends on the LLM.
+---
 
-The planner picks sources by product type — Steam for a game, not for
-headphones — and disambiguates names that are common English words, which cut
-"notion"-the-word false positives from ~90% to ~7%.
-
-### Query length is per-source, and it matters
-
-Hacker News, Lemmy and Steam use keyword AND-matching, so every extra word
-shrinks the result set hard:
-
-| query | HN matches |
-|---|---|
-| `Notion` | 345,412 |
-| `Notion app` | 33,507 |
-| `Notion productivity tool opinions` | **7** |
-
-The planner is instructed to keep queries to 1-3 words for those sources and
-use natural language only for YouTube and Browserbase. Fixing this alone took
-Hacker News from 79 to 1,393 documents on one run.
-
-## Source reference
+## Sources
 
 | Source | Needs | Volume | Notes |
 |---|---|---|---|
-| `hackernews` | nothing | ~1000/query | 10 pages x 100, free |
-| `youtube` | `YOUTUBE_API_KEY` | high | videos x comments |
-| `browserbase` | `BROWSERBASE_API_KEY` | moderate | review sites, Reddit aggregators |
-| `steam` | nothing | **enormous** | games only; 1.5M reviews on a big title |
-| `lemmy` | nothing | low | federated Reddit-alike, real user voice |
-
-Steam also carries **ground truth** — `voted_up` is the reviewer's own verdict
-and `playtime_hours` is real usage, so it can score whether the analysis
-layer's inferred sentiment is actually right.
+| `hackernews` | nothing | ~1000/query | Most reliable. Weak for consumer goods |
+| `youtube` | `YOUTUBE_API_KEY` | high | Video titles screened against the product first |
+| `browserbase` | `BROWSERBASE_API_KEY` | moderate | Review sites, forums, Reddit aggregators |
+| `steam` | nothing | **enormous** | Games only. 1.5M reviews on a large title |
+| `lemmy` | nothing | low | Federated Reddit-alike, real community voice |
 
 ### Platforms that cannot be collected
 
-Re-verified 2026-09-19, including through Browserbase residential proxies:
+Tested directly, including through residential proxies:
 
 | Platform | Result |
 |---|---|
-| Reddit direct | 403; with proxies HTTP 200 but a "Prove your humanity" CAPTCHA |
-| X / Twitter | syndication endpoint 429 **even through proxies**; oembed 404 |
-| Instagram | embed returns HTTP 200 but contains no caption text |
-| Bluesky | public search now 403 |
+| Reddit | 403; with proxies HTTP 200 but the body is a "Prove your humanity" CAPTCHA |
+| X / Twitter | syndication endpoint returns 429 **even proxied** |
+| Instagram | embed returns 200 but carries no caption text |
+| Bluesky | public search now 403s |
 
-These are login/bot walls, not IP blocks, so proxies do not help. Reddit
-opinion still reaches the corpus indirectly through aggregators that quote it.
+These are login and bot walls, not IP blocks, so no proxy fixes them. Reddit and
+X *opinion* still reaches the corpus through aggregator pages that quote those
+threads, which is what the Browserbase connector collects.
 
-## Normalized feedback + Elasticsearch
+---
 
-Every connector normalizes into one `FeedbackRecord` shape, indexed into a
-single **tenant-aware** index (`product-feedback`) filtered on
-`organization_id` / `product_id` / `source` — never one index per product.
+## How the data is stored
+
+Every connector normalizes to one shape before anything downstream sees it:
 
 ```
-organization_id  product_id  source     external_id  content   content_type
-published_at     author_hash engagement language     url       source_metadata
+organization_id  product_id  source  external_id  content  content_type
+published_at  author_hash  engagement  language  url  source_metadata
 ingested_at
++ sentiment  sentiment_score  is_complaint  issue_categories  relevant
 ```
 
-Plus enrichment filled before indexing: `sentiment`, `sentiment_score`,
-`is_complaint`, `issue_categories`, `relevant`.
+**One shared index**, filtered by `organization_id` / `product_id` / `source` —
+not one index per product, which would explode shard counts and make
+cross-product analytics impossible.
+
+**Duplicates are prevented structurally.** The Elasticsearch `_id` is a hash of
+(org, product, source, external_id), so re-ingesting overwrites rather than
+duplicates and a crashed job can safely replay. Verified: indexing the same
+2,146 documents twice leaves 2,146 documents.
+
+**Usernames are never stored.** `author_hash` is a salted, source-scoped digest
+— enough to count distinct voices and spot one person posting fifty times,
+without retaining who they are.
+
+---
+
+## Failure behaviour
+
+A partial result beats no result. Losing a real complaint is worse than showing
+a questionable row, which is why unknown relevance stays visible.
+
+| Failure | Response |
+|---|---|
+| Missing API key | Source skipped and reported in the UI |
+| Model unreachable | Falls back to lexicon scoring, relevance left unknown |
+| Browserbase quota exhausted (402) | Falls back to direct HTTP for the rest of the run |
+| One source crashes | Logged, the others continue |
+| Elasticsearch 429/503 | Exponential backoff, 3 retries |
+| Job crashes | `ingestion_jobs` row marked failed with the error |
+
+---
+
+## Tests
 
 ```bash
-# collect -> normalize -> enrich -> index
-python -m product_voice.index_cli "Notion" --plan --org acme --product-id notion
-
-# index a corpus collected earlier
-python -m product_voice.index_cli "Notion" --from-jsonl data/notion.jsonl \
-    --org acme --product-id notion
-
-python -m product_voice.index_cli "Notion" --analytics   --org acme --product-id notion
-python -m product_voice.index_cli "Notion" --duplicates  --org acme --product-id notion
-python -m product_voice.index_cli "Notion" --delete      --org acme --product-id notion
+PYTHONPATH=src python -m pytest tests/ -q
 ```
 
-### Design decisions
+61 tests, no network calls. Includes wiring tests that assert the modules fit
+together — added after a type mismatch between the analyzer and the enrichment
+layer shipped a 500 that every unit test passed straight through.
 
-**Duplicate prevention is structural.** `_id` is a deterministic hash of
-(org, product, source, external_id), so re-ingesting overwrites instead of
-duplicating and a connector can replay a checkpoint safely. Verified: indexing
-the same 2,146 documents twice leaves 2,146 documents.
+---
 
-**Tenancy is enforced by the id too**, so two organizations watching the same
-public comment each keep their own row. Verified: the same corpus under two
-orgs yields 2,146 each, 4,292 total.
+## Known limits
 
-**`author_hash` is salted and source-scoped.** Enough to count distinct voices
-and spot one person posting fifty times; the username is never stored. The
-same handle on two platforms does not collapse into one identity.
+Worth saying plainly rather than discovering live:
 
-**Analytics never pool sources blindly.** Every aggregate returns `by_source`
-beside the total, because sources are not comparable:
+- **A standard collection takes around two minutes.** Pre-collect before a demo.
+- **No vector search.** Elasticsearch is BM25 keyword only. Hybrid retrieval is
+  the obvious next step, not something already present.
+- **Steam only applies to games.**
+- **Analysis runs at roughly 9 comments/second**, tunable via batch size and
+  worker count.
+- **Background topic clustering, trend detection and a recurring scheduler are
+  designed but not built.** They appear dashed on the detailed diagram.
+- **`bridge.py` is dead code** from the original YouTube-only schema.
+
+---
+
+## Project layout
 
 ```
-BY SOURCE (totals above pool these — the mix matters)
-  source          count   share  complaint%  sentiment  authors
-  hackernews       1393   64.9%       45.2%      0.390     1181
-  youtube           623   29.0%        8.5%      0.497      616
-  browserbase       130    6.1%       24.6%      0.339        25
+src/product_voice/
+  api.py              FastAPI app, 9 routes (+6 under /voice)
+  planner.py          LLM picks sources and writes queries
+  collect.py          Orchestration, dedupe, junk filter, rejects log
+  collect_service.py  Depth presets, ties the stages together
+  llm_analysis.py     Batched LLM classification
+  enrich.py           Applies analysis, lexicon fallback
+  feedback.py         The normalized record
+  feedback_store.py   Elastic mapping, indexing, balanced search, analytics
+  voice.py            Voice endpoints and grounded agent tools
+  supabase.py         REST client
+  sources/            One adapter per platform
+frontend/             React + Vite dashboard
+scripts/              Voice agent provisioning
+supabase/migrations/  Tenant schema
+assets/               Architecture diagrams
+tests/                61 tests
 ```
-
-A 45% complaint rate on Hacker News against 8.5% on YouTube is audience bias,
-not a change in the product. The pooled 33.3% describes the source mix as much
-as the product, which is why the breakdown always ships with it.
-
-### Sentiment is measurably weak on negatives
-
-Steam carries ground truth (`voted_up` is the reviewer's own verdict), so the
-analysis layer can be scored rather than trusted:
-
-| reviewer said | n | inferred positive | inferred negative |
-|---|---|---|---|
-| thumbs up | 278 | 82% | 8% |
-| **thumbs down** | 22 | **55%** | 32% |
-
-78.3% agreement overall, but VADER calls the majority of genuinely negative
-reviews positive — sarcasm ("10/10 would crash again") defeats it. Replacing
-VADER with an LLM classifier on the complaint path is the highest-value
-analytics fix, and Steam is how you prove it worked.
-
-
-## Analysis: LLM, not lexicon
-
-Sentiment, relevance, intent and issue categories all come from a single model
-(`gpt-5.6-sol`) reading each comment, batched 25 at a time. VADER remains only
-as a degraded fallback for when the model is unreachable.
-
-### Why VADER was replaced
-
-VADER is a 7,506-word dictionary plus five rules — it never reads a sentence,
-it adds up word scores. Measured against Steam's `voted_up` ground truth it
-agreed 78% overall but called **55% of genuinely negative reviews positive**,
-because sarcasm inverts meaning without changing vocabulary:
-
-| text | VADER | LLM |
-|---|---|---|
-| "I love how it deletes my data" | positive | **negative** |
-| "Great, another update that broke everything" | positive | **negative** |
-| "this thing is sick, best purchase all year" | negative | **positive** |
-| "great video man keep it up" | positive | **irrelevant** |
-
-That last row is the important one. VADER could not judge *relevance* at all,
-and neither could keyword rules — they cannot tell "the notion that..." from
-"Notion is slow", or a comment about the video from a comment about the
-product. That was most of the noise in the dashboard.
-
-### What it caught that nothing else could
-
-Collecting "Notion" from YouTube returns comments about a **song** called
-Notion by The Rare Occasions. The analyzer marked all 113 irrelevant —
-correctly. Re-running with "Notion app" produced 24 relevant rows with
-summaries like *"Creating task pages feels harder than completing the tasks"*.
-
-### Cost and failure behaviour
-
-One call per batch of 25, not per comment — roughly 5 comments/second. Every
-failure path degrades instead of blocking: an unreachable model, unparseable
-JSON, or a dropped row falls back to lexicon scoring with `relevant = null`,
-which stays visible downstream. Losing a real complaint is worse than showing a
-questionable row.
-
-Note `gpt-5.x` rejects any `temperature` but the default; passing one fails the
-call with a 400.
