@@ -100,6 +100,17 @@ Swagger **Authorize** button.
 - `GET /products/{product_id}/comments` — tenant-filtered comment search.
 - `GET /health` — service health.
 
+## Ask Vox voice agent
+
+Set `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`, and a random
+`ELEVENLABS_TOOL_SECRET` in `.env`. Expose the API at the HTTPS URL in
+`PUBLIC_BASE_URL`, then run `python scripts/setup_voice_agent.py` to point the
+agent's three read-only tools at this API. The Ask Vox side panel uses a
+Supabase-authenticated, product-specific signed URL. Its tool calls use a
+short-lived signed scope and read the same multi-source feedback index as the
+dashboard. A temporary tunnel works for local demos; update the agent URL when
+the tunnel changes.
+
 ## Important notes
 
 - YouTube `search.list` costs 100 quota units per call; `commentThreads.list` costs

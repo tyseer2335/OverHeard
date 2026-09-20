@@ -9,6 +9,11 @@
   --hover: #171717; --border: rgba(255,255,255,.08); --text: #ededed;
   --text-2: #a1a1a1; --muted: #7a7a7a; --accent: #e5ff6a;
   --danger: #f87171; --warning: #fbbf24; --success: #4ade80;
+  /* Tells the browser to render NATIVE controls dark — the select popup,
+     scrollbars, date pickers and autofill. CSS on a <select> never reaches
+     its option list, which the OS draws, so without this the dropdowns
+     open as white panels regardless of how the closed control is styled. */
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body, #root { min-width: 320px; min-height: 100%; margin: 0; }

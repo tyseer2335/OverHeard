@@ -4,9 +4,10 @@ import {
   ArrowLeft, ArrowRight, ArrowUpRight, BarChart3, Check,
   ChevronDown, CircleDot, Command, ExternalLink, Inbox, Layers3, LoaderCircle,
   LogOut, Menu, Mic, PackageSearch, Plus, RefreshCw,
-  Search, Send, Settings, ThumbsUp, Trash2, TriangleAlert, X, Zap } from 'lucide-react'
+  Search, Settings, ThumbsUp, Trash2, TriangleAlert, X, Zap } from 'lucide-react'
 import { FaHackerNews, FaRedditAlien, FaXTwitter, FaYoutube } from 'react-icons/fa6'
 import { api } from '../lib/api'
+import { VoxPanel } from './VoxPanel'
 import type { Analytics, IngestionJob, IngestResult, Organization, Product, ProductComment } from '../types'
 
 type View = 'overview' | 'issues' | 'evidence' | 'new' | 'detail'
@@ -148,7 +149,7 @@ export function Dashboard({ session, supabase, notify }: DashboardProps) {
     {showAddProduct && <ProductModal onClose={() => setShowAddProduct(false)} onSubmit={createProduct} />}
     {deleteTarget && <DeleteProductModal product={deleteTarget} busy={deleting} onCancel={() => setDeleteTarget(null)} onConfirm={() => void removeProduct(deleteTarget)} />}
     {showIngest && product && <IngestModal product={product} token={token} onClose={() => setShowIngest(false)} onComplete={(text) => { notify(text); void loadData(product) }} />}
-    {showVox && <VoxPanel issues={issues} onClose={() => setShowVox(false)} onOpenIssue={(id) => { setShowVox(false); navigate('detail', id) }} />}
+    {showVox && product && <VoxPanel key={product.id} product={product} token={token} issues={issues} onClose={() => setShowVox(false)} onOpenIssue={(id) => { setShowVox(false); navigate('detail', id) }} />}
     {showCommand && <CommandPalette issues={issues} onClose={() => setShowCommand(false)} onNavigate={(next, id) => { setShowCommand(false); navigate(next, id) }} />}
     {dialog && <InfoDialog kind={dialog} onClose={() => setDialog(null)} />}
   </div>
@@ -225,12 +226,6 @@ function NewResearch({ product, onClose, onStart, onVox }: { product: Product; o
   const [intent,setIntent] = useState('What frustrates them?'); const [sources,setSources] = useState(['youtube','reddit','hackernews']); const [busy,setBusy] = useState(false)
   const toggle = (source:string) => setSources((all) => all.includes(source) ? all.filter((item) => item !== source) : [...all,source])
   return <div className="research-page"><div className="research-brand"><span className="overheard-logo large" role="img" aria-label="Overheard"/></div><button className="research-close" onClick={onClose}><X/></button><form className="research-compose" onSubmit={async (event) => { event.preventDefault(); setBusy(true); await onStart(); setBusy(false) }}><span className="mono-label accent-text">New research</span><h1>What do you want to understand?</h1><p>Point Overheard at a product question. We’ll gather, clean and rank the public evidence.</p><div className="surface composer"><label>Product or company<input defaultValue={product.name}/></label><fieldset><legend>What do you want to know?</legend><div className="intent-chips">{['What frustrates them?','What do they love?','Why are they churning?','How did the last release land?'].map((item) => <button type="button" className={intent === item ? 'active' : ''} onClick={() => setIntent(item)} key={item}>{item}</button>)}</div><textarea placeholder="…or ask something specific"/></fieldset><fieldset><legend>Sources to scan</legend><div className="source-toggles">{['youtube','reddit','hackernews','producthunt','x'].map((item) => <button type="button" key={item} className={`${sources.includes(item) ? 'active' : ''} ${item === 'x' ? 'beta' : ''}`} onClick={() => toggle(item)}>{sources.includes(item) && <Check/>}{titleCase(item)}{item === 'x' && <small>beta</small>}</button>)}</div></fieldset><button className="button accent full" disabled={busy}>{busy ? <LoaderCircle className="spin"/> : <>Start research <ArrowRight/></>}</button><button className="outline-accent full" type="button" onClick={onVox}><Mic/>Ask Vox instead</button></div></form></div>
-}
-
-function VoxPanel({ issues, onClose, onOpenIssue }: { issues: Issue[]; onClose: () => void; onOpenIssue: (id:string) => void }) {
-  const [text,setText] = useState(''); const [messages,setMessages] = useState([{role:'vox',text:`I’m ready. I can explain ${issues.length} grounded pain points and open the evidence behind any claim.`}])
-  const ask = (question:string) => { if (!question.trim()) return; const top=issues[0]; setMessages((all) => [...all,{role:'user',text:question},{role:'vox',text:top ? `${top.title} is currently the strongest signal with ${top.mentions} mentions across ${top.sources.length || 1} sources.` : 'There is not enough analyzed feedback yet. Start a collection run first.'}]); setText('') }
-  return <aside className="vox-panel"><header><div><b>Vox</b><span>market-research analyst</span></div><span className="listening"><i/>Listening</span><button onClick={onClose}><X/></button></header><div className="mic-orb"><Mic/></div><div className="transcript">{messages.map((item,index) => <div key={index} className={item.role}>{item.text}</div>)}</div><div className="suggestions">{['Brief me on this week','Compare to last month','Top 3 to fix'].map((item) => <button key={item} onClick={() => ask(item)}>{item}</button>)}</div>{issues[0] && <button className="vox-link" onClick={() => onOpenIssue(issues[0].id)}>Open top pain point <ArrowUpRight/></button>}<form className="challenge" onSubmit={(event) => { event.preventDefault(); ask(text) }}><label>Challenge a claim<input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask for the evidence…"/></label><button><Send/></button></form><footer><select aria-label="Voice"><option>River — Relaxed, Neutral</option></select><button onClick={onClose}>End</button></footer></aside>
 }
 
 function CommandPalette({ issues, onClose, onNavigate }: { issues: Issue[]; onClose: () => void; onNavigate: (view:View,id?:string) => void }) {
@@ -344,7 +339,7 @@ function titleCase(value:string){return value.replaceAll('_',' ').replace(/\b\w/
 function initials(value:string){return value.split(/\s|@/).filter(Boolean).slice(0,2).map((item)=>item[0]).join('').toUpperCase()}
 function errorMessage(error:unknown){return error instanceof Error?error.message:'Something went wrong'}
 function shortHash(value:string){return value?`User ${value.slice(0,5)}`:'Anonymous'}
-function shortDate(value:string){return new Date(value).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+function shortDate(value:string){return new Date(value).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'})}
 function relativeDate(value:string){const days=Math.floor((Date.now()-new Date(value).getTime())/86400000);return days<=0?'today':days===1?'1d ago':days<30?`${days}d ago`:shortDate(value)}
 function isoDaysAgo(days:number){return new Date(Date.now()-days*86400000).toISOString()}
 /** Rank evidence without letting one source monopolize the list.

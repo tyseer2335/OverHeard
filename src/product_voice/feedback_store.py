@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import date, timedelta
 from typing import Any, Iterable, Sequence
 
 from elasticsearch import Elasticsearch, helpers
@@ -224,6 +225,10 @@ class FeedbackStore:
         limit: int = 20,
         relevant_only: bool = True,
         balanced: bool = True,
+        author_prefix: str | None = None,
+        external_id: str | None = None,
+        posted_date: date | None = None,
+        posted_month_day: tuple[int, int] | None = None,
     ) -> list[dict]:
         """Top feedback rows.
 
@@ -234,13 +239,11 @@ class FeedbackStore:
         4/3/2 and Browserbase's were 0. Sorting on the raw number returned
         100/100 YouTube, so the other sources could never reach the UI at all.
         """
-        filters = self._tenant_filter(
-            organization_id, product_id, sources, language, since, relevant_only
+        body = self._feedback_query(
+            organization_id, product_id, query, sources, complaints_only,
+            language, since, relevant_only, author_prefix, external_id,
+            posted_date, posted_month_day,
         )
-        if complaints_only:
-            filters.append({"term": {"is_complaint": True}})
-        must = [{"match": {"content": query}}] if query else []
-        body = {"bool": {"filter": filters, "must": must}}
 
         # A text query ranks by relevance, which IS comparable across sources.
         if query or not balanced:
@@ -257,6 +260,90 @@ class FeedbackStore:
             return [hit["_source"] for hit in response["hits"]["hits"]]
 
         return self._balanced_search(body, limit)
+
+    def count_matches(
+        self,
+        organization_id: str,
+        product_id: str,
+        query: str | None = None,
+        sources: Sequence[str] | None = None,
+        author_prefix: str | None = None,
+        external_id: str | None = None,
+        posted_date: date | None = None,
+        posted_month_day: tuple[int, int] | None = None,
+        relevant_only: bool = True,
+    ) -> int:
+        """Exact count for the same filters used by voice comment lookup."""
+        body = self._feedback_query(
+            organization_id, product_id, query, sources, False, None, None,
+            relevant_only, author_prefix, external_id, posted_date, posted_month_day,
+        )
+        return int(self.client.count(index=self.index, query=body)["count"])
+
+    def relevance_counts(self, organization_id: str, product_id: str) -> dict[str, int]:
+        """Coverage of product-relevance classification, including excluded rows."""
+        response = self.client.search(
+            index=self.index,
+            size=0,
+            query={"bool": {"filter": self._tenant_filter(
+                organization_id, product_id, relevant_only=False
+            )}},
+            aggs={
+                "classified_relevant": {"filter": {"term": {"relevant": True}}},
+                "classified_irrelevant": {"filter": {"term": {"relevant": False}}},
+                "unreviewed": {"filter": {"bool": {
+                    "must_not": {"exists": {"field": "relevant"}}
+                }}},
+            },
+        )
+        aggs = response["aggregations"]
+        return {key: int(aggs[key]["doc_count"]) for key in (
+            "classified_relevant", "classified_irrelevant", "unreviewed"
+        )}
+
+    def _feedback_query(
+        self,
+        organization_id: str | None,
+        product_id: str | None,
+        query: str | None,
+        sources: Sequence[str] | None,
+        complaints_only: bool,
+        language: str | None,
+        since: str | None,
+        relevant_only: bool,
+        author_prefix: str | None,
+        external_id: str | None,
+        posted_date: date | None,
+        posted_month_day: tuple[int, int] | None,
+    ) -> dict:
+        filters = self._tenant_filter(
+            organization_id, product_id, sources, language, since, relevant_only
+        )
+        if complaints_only:
+            filters.append({"term": {"is_complaint": True}})
+        if author_prefix:
+            filters.append({"prefix": {"author_hash": author_prefix}})
+        if external_id:
+            filters.append({"term": {"external_id": external_id}})
+        if posted_date:
+            filters.append({"range": {"published_at": {
+                "gte": posted_date.isoformat(),
+                "lt": (posted_date + timedelta(days=1)).isoformat(),
+            }}})
+        elif posted_month_day:
+            month, day = posted_month_day
+            filters.append({"script": {"script": {
+                "source": (
+                    "doc['published_at'].size() != 0 && "
+                    "doc['published_at'].value.getMonthValue() == params.month && "
+                    "doc['published_at'].value.getDayOfMonth() == params.day"
+                ),
+                "params": {"month": month, "day": day},
+            }}})
+        return {"bool": {
+            "filter": filters,
+            "must": [{"match": {"content": query}}] if query else [],
+        }}
 
     def _balanced_search(self, body: dict, limit: int) -> list[dict]:
         """Take the best rows from each source, then interleave them."""
