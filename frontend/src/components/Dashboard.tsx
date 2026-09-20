@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import {
-  ArrowLeft, ArrowRight, ArrowUpRight, BarChart3, Check,
+  ArrowLeft, ArrowRight, BarChart3, Check,
   ChevronDown, CircleDot, Command, ExternalLink, Inbox, Layers3, LoaderCircle,
   LogOut, Menu, Mic, PackageSearch, Plus, RefreshCw,
   Search, Settings, ThumbsUp, Trash2, TriangleAlert, X, Zap } from 'lucide-react'
@@ -141,8 +141,7 @@ export function Dashboard({ session, supabase, notify }: DashboardProps) {
           onRefresh={() => void loadData(product)} onCollect={() => setShowIngest(true)} onIssue={(id) => navigate('detail', id)} onIssues={() => navigate('issues')} />}
         {view === 'issues' && <IssuesPage issues={issues} onIssue={(id) => navigate('detail', id)} onNew={() => navigate('new')} />}
         {view === 'evidence' && <EvidencePage comments={comments} />}
-        {view === 'detail' && selectedIssue && <IssueDetail issue={selectedIssue} onBack={() => navigate('issues')} onVox={() => setShowVox(true)}
-          onTicket={() => notify('Created Linear issue OVH-482')} />}
+        {view === 'detail' && selectedIssue && <IssueDetail issue={selectedIssue} onBack={() => navigate('issues')} onVox={() => setShowVox(true)} />}
         {view === 'new' && <NewResearch product={product} onClose={() => navigate('overview')} onStart={async () => { setShowIngest(true); navigate('overview') }} onVox={() => setShowVox(true)} />}
       </>}
     </main>
@@ -209,11 +208,11 @@ function IssuesPage({ issues, onIssue, onNew }: { issues: Issue[]; onIssue: (id:
   return <div className="ov-page"><PageHeader title="Pain points" subtitle="The customer problems that deserve attention." actions={<button className="button accent" onClick={onNew}><Plus/>New research</button>}/><div className="filter-bar"><Select value={source} onChange={setSource} label="Source" options={['all',...sources]}/><Select value={severity} onChange={setSeverity} label="Priority" options={['all','critical','high','medium','low']}/><label className="table-search"><Search/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search pain points"/></label></div><section className="surface table-wrap"><table className="issues-table simple"><thead><tr><th>Issue</th><th>Category</th><th>Comments</th><th>Sentiment</th><th>Sources</th><th>Evidence</th></tr></thead><tbody>{filtered.map((issue) => <tr key={issue.id} onClick={() => onIssue(issue.id)}><td><SeverityDot severity={issue.severity}/><b>{issue.title}</b></td><td>{titleCase(issue.category)}</td><td>{issue.mentions}</td><td><span className={`sentiment-label ${sentimentTone(issue.sentiment)}`}>{sentimentLabel(issue.sentiment)}</span></td><td>{issue.sources.length}</td><td><button onClick={() => onIssue(issue.id)}>View evidence <ArrowRight/></button></td></tr>)}</tbody></table>{!filtered.length && <Empty title="No matching pain points" text="Clear a filter or try another search."/>}<footer>Showing {filtered.length} pain point{filtered.length===1?'':'s'} <span>Open any row to see the recommended action and supporting comments.</span></footer></section></div>
 }
 
-function IssueDetail({ issue, onBack, onVox, onTicket }: { issue: Issue; onBack: () => void; onVox: () => void; onTicket: () => void }) {
+function IssueDetail({ issue, onBack, onVox }: { issue: Issue; onBack: () => void; onVox: () => void }) {
   const [source, setSource] = useState('all'); const [connect, setConnect] = useState<string | null>(null)
   const evidence = rankEvidence(issue.evidence.filter((item) => source === 'all' || item.source === source)).slice(0,10)
   return <div className="ov-page detail-page"><button className="back-link" onClick={onBack}><ArrowLeft/>All pain points</button><div className="detail-heading"><div><h1><SeverityDot severity={issue.severity}/>{issue.title}</h1><p>{issue.summary}</p><div className="meta-row"><span>Category <b>{titleCase(issue.category)}</b></span><span>Priority <b className="negative">{issue.severity}</b></span><span>Comments <b>{issue.mentions}</b></span><span>Sources <b>{issue.sources.join(', ') || '—'}</b></span></div></div><button className="outline-accent" onClick={onVox}><Mic/>Ask Vox about this</button></div><div className="detail-grid"><div className="detail-left"><section className="surface action-card primary-action"><span className="mono-label">Recommended action</span><h2>Address {issue.title.toLowerCase()}</h2><p>Review the highest-impact customer examples with the product owner, validate where the problem occurs, and prioritize a targeted improvement to the {issue.category} experience.</p><span className="mono-label">Next steps</span><ol><li>Review the customer comments below with Product and Support.</li><li>Confirm the affected workflow using internal product data.</li><li>Assign an owner and scope the smallest meaningful fix.</li></ol></section><section className="surface detail-evidence"><SectionHead title="Evidence" subtitle={`Top ${Math.min(10,evidence.length)} comments by impact and engagement`}/><div className="source-tabs"><button className={source === 'all' ? 'active' : ''} onClick={() => setSource('all')}>All</button>{issue.sources.map((item) => <button key={item} className={source === item ? 'active' : ''} onClick={() => setSource(item)}>{titleCase(item)}</button>)}</div>{evidence.map((item) => <EvidenceCard key={`${item.source}-${item.external_id}`} item={item} expanded/>)}{!evidence.length && <Empty title="No evidence in this source" text="Choose another source tab."/>}</section></div></div>
-    <section className="surface send-card send-card-wide"><SectionHead title="Send this pain point" subtitle="Create work where your team already operates"/><div className="destination-row">{['Linear','GitHub','Jira','Salesforce','Slack'].map((item) => <div className="destination" key={item}><span>{item.slice(0,2).toUpperCase()}</span><b>{item}</b>{item === 'Linear' ? <small><i/>Connected</small> : <button onClick={() => setConnect(item)}>Connect</button>}</div>)}</div><button className="button accent full" onClick={onTicket}><ArrowUpRight/>Create ticket in Linear</button></section>{connect && <Modal title={`Connect ${connect}`} subtitle="Authorize Overheard to send this pain point and its supporting evidence to your workspace." onClose={() => setConnect(null)}><button className="button accent full" onClick={() => setConnect(null)}>Continue to {connect}</button></Modal>}</div>
+    <section className="surface send-card send-card-wide"><SectionHead title="Send this pain point" subtitle="Create work where your team already operates"/><div className="destination-row">{['Linear','GitHub','Jira','Salesforce','Slack'].map((item) => <div className="destination" key={item}><span>{item.slice(0,2).toUpperCase()}</span><b>{item}</b><button onClick={() => setConnect(item)}>Connect</button></div>)}</div></section>{connect && <Modal title={`Connect ${connect}`} subtitle="Authorize Overheard to send this pain point and its supporting evidence to your workspace." onClose={() => setConnect(null)}><button className="button accent full" onClick={() => setConnect(null)}>Continue to {connect}</button></Modal>}</div>
 }
 
 function EvidencePage({ comments }: { comments: ProductComment[] }) {
@@ -233,10 +232,23 @@ function CommandPalette({ issues, onClose, onNavigate }: { issues: Issue[]; onCl
   return <div className="modal-backdrop" onMouseDown={onClose}><div className="command-palette" onMouseDown={(e)=>e.stopPropagation()}><label><Search/><input autoFocus value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search pages and pain points…"/><kbd>ESC</kbd></label><span>Navigate</span>{[['Overview','overview'],['Pain points','issues'],['Evidence','evidence']].map(([label,next])=><button key={next} onClick={()=>onNavigate(next as View)}><Command/>{label}<ArrowRight/></button>)}{matches.length>0&&<span>Pain points</span>}{matches.map((issue)=><button key={issue.id} onClick={()=>onNavigate('detail',issue.id)}><SeverityDot severity={issue.severity}/>{issue.title}<ArrowRight/></button>)}</div></div>
 }
 
+/** How much of a comment to show before collapsing it. Scraped comments run
+ *  long: on real collected data the median is ~79 words but the top 10% run
+ *  past 340 and the longest seen was 1,272, so a few of them would otherwise
+ *  push everything else off the page. The rest is one click away.
+ *  Measured at this limit, roughly 30% of comments get collapsed. */
+const PREVIEW_WORDS = 150
+
 function EvidenceCard({ item, expanded=false }: { item: ProductComment; expanded?: boolean }) {
   const tone = item.sentiment === 'positive' ? 'positive' : item.sentiment === 'negative' ? 'negative' : 'neutral'
+  const [open, setOpen] = useState(false)
+  const full = item.content || ''
+  // Split on any whitespace so newlines inside a comment count as breaks too.
+  const words = full.trim().split(/\s+/)
+  const isLong = words.length > PREVIEW_WORDS
+  const preview = isLong ? words.slice(0, PREVIEW_WORDS).join(' ') : full
   return <article className={`evidence-card tone-${tone} ${expanded?'expanded':''}`}>
-    <p>“{item.content}”</p>
+    <p>“{open || !isLong ? full : `${preview}…`}”{isLong && <button className="read-more" onClick={() => setOpen(!open)}>{open ? 'Show less' : 'Show more'}</button>}</p>
     <footer>
       <SentimentBadge sentiment={item.sentiment}/>
       <span className="source-mark">{item.source.slice(0,2).toUpperCase()}</span>
