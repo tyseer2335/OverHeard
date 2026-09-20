@@ -38,4 +38,7 @@ export const api = {
   },
   ingestions: (token: string, productId: string) => request<IngestionJob[]>(`/products/${productId}/ingestions`, token),
   ingest: (token: string, productId: string, data: { depth: 'quick' | 'standard' | 'deep' }) => request<IngestResult>(`/products/${productId}/ingestions`, token, { method: 'POST', body: JSON.stringify(data) }),
+  voiceConfig: () => request<{ configured: boolean }>('/voice/config'),
+  voiceSignedUrl: (token: string, productId: string) => request<{ signed_url: string; scope_token: string; product_name: string }>(`/voice/products/${productId}/signed-url`, token, { method: 'POST' }),
+  voices: (token: string) => request<{ voices: { voice_id: string; name: string }[] }>('/voice/voices', token),
 }
