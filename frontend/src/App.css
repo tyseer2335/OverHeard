@@ -83,3 +83,41 @@
 .send-card-wide .destination small{display:flex;align-items:center;gap:5px;color:var(--success);font-size:10px;white-space:nowrap}
 .send-card-wide .destination small i{width:5px;height:5px;border-radius:50%;background:var(--success)}
 .send-card-wide .button.full{max-width:280px}
+
+/* ---- Native form controls -------------------------------------------------
+   `color-scheme: dark` (index.css) handles the OS-drawn popup. These rules
+   handle the closed control, which CSS does own. */
+select, option, optgroup { color-scheme: dark; }
+select {
+  appearance: none; -webkit-appearance: none;
+  background-color: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  cursor: pointer;
+  /* Room for the chevron, so long option text never runs under it. */
+  padding-right: 26px;
+  transition: border-color .14s, background .14s;
+}
+select:hover { border-color: rgba(229,255,106,.35); }
+select:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(229,255,106,.12); }
+/* Chrome and Edge on Windows do honour these for the popup rows. */
+select option { background-color: #16171a; color: var(--text); padding: 8px 10px; }
+select option:checked { background-color: var(--hover); color: var(--accent); font-weight: 600; }
+
+/* The filter pill wraps a borderless select, so the border lives on the
+   wrapper — reset the inner control or it draws a second box. */
+.filter-select { display:flex; align-items:center; gap:6px; height:34px; padding:0 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); cursor:pointer; transition:border-color .14s }
+.filter-select:hover { border-color: rgba(229,255,106,.35) }
+.filter-select:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(229,255,106,.12) }
+.filter-select > span { color: var(--muted); font: 500 9px 'IBM Plex Mono'; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap }
+.filter-select select { height:100%; border:0; background:transparent; box-shadow:none; padding:0 2px 0 0; color:var(--text); font:500 11px inherit; text-transform:none }
+.filter-select select:hover, .filter-select select:focus-visible { border:0; box-shadow:none }
+.filter-select > svg { width:13px; color:var(--muted); pointer-events:none; flex-shrink:0 }
+
+/* Voice picker in the Vox footer. */
+.vox-panel footer select { height:32px; padding:0 26px 0 10px; font-size:11px; background-color:var(--surface-2); max-width:210px }
+
+/* Match the dark surface so pickers don't sit on a bright scrollbar. */
+* { scrollbar-color: #3a3b40 transparent; }
