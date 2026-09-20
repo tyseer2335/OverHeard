@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import base64
+import calendar
 from collections import Counter
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 import hashlib
 import hmac
 import logging
+import re
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -130,6 +132,9 @@ ScopeHeader = Annotated[str | None, Header(alias="X-Voice-Scope")]
 class QueryBody(BaseModel):
     query: str = Field(default="", max_length=200)
     source: str = Field(default="", max_length=50)
+    author_id: str = Field(default="", max_length=50)
+    comment_id: str = Field(default="", max_length=200)
+    posted_on: str = Field(default="", max_length=40)
 
 
 class ChallengeBody(BaseModel):
@@ -138,15 +143,48 @@ class ChallengeBody(BaseModel):
 
 
 def _example(row: dict) -> dict:
+    metadata = row.get("source_metadata") or {}
     return {
         "content": row.get("content", "")[:350],
         "source": row.get("source"),
+        "comment_id": row.get("external_id"),
+        "author_label": f"User {row['author_hash'][:5]}" if row.get("author_hash") else "Anonymous",
         "url": row.get("url"),
+        "relevant": row.get("relevant"),
+        "content_type": row.get("content_type"),
+        "thread_title": metadata.get("thread_title"),
         "sentiment": row.get("sentiment"),
         "issues": row.get("issue_categories", []),
         "published_at": row.get("published_at"),
         "engagement": row.get("engagement", {}),
     }
+
+
+def _parse_posted_on(value: str) -> tuple[date | None, tuple[int, int] | None]:
+    """A full date selects one UTC day; a dashboard label selects all years."""
+    if not value.strip():
+        return None, None
+    cleaned = re.sub(r"(\d)(st|nd|rd|th)\b", r"\1", value.strip().casefold())
+    cleaned = cleaned.replace(",", "")
+    try:
+        return date.fromisoformat(cleaned), None
+    except ValueError:
+        pass
+    parts = cleaned.split()
+    months = {
+        alias.casefold(): month
+        for month in range(1, 13)
+        for alias in (calendar.month_abbr[month], calendar.month_name[month])
+    }
+    if len(parts) not in (2, 3) or parts[0] not in months:
+        raise ValueError("Use a date like Jan 24 or 2026-01-24")
+    try:
+        month, day = months[parts[0]], int(parts[1])
+        year = int(parts[2]) if len(parts) == 3 else 2000
+        parsed = date(year, month, day)
+    except ValueError as exc:
+        raise ValueError("Invalid calendar date") from exc
+    return (parsed, None) if len(parts) == 3 else (None, (month, day))
 
 
 @router.post("/tools/analyze_product")
@@ -155,14 +193,33 @@ def analyze_product(
 ) -> dict[str, Any]:
     organization_id, product_id = _verified_scope(x_voice_scope)
     data = store.analytics(organization_id=organization_id, product_id=product_id)
+    coverage = store.relevance_counts(organization_id, product_id)
     if not data["total"]:
-        return {"spoken": "There is no analyzed feedback for this product yet.", **data}
+        return {"spoken": "There is no indexed feedback for this product yet.", "relevance_counts": coverage, **data}
     top = ", ".join(row["name"].replace("_", " ") for row in data["issues"][:3])
+    if not coverage["classified_relevant"]:
+        spoken = (
+            f"I have {data['total']} indexed items, but none is classified as relevant "
+            "to this product yet. I can inspect specific comments, but aggregate "
+            "sentiment and issue labels are not reliable product conclusions."
+        )
+    elif coverage["unreviewed"]:
+        spoken = (
+            f"I have {data['total']} indexed items, including {coverage['unreviewed']} "
+            "without a product relevance classification. Aggregate sentiment and issue "
+            "labels may include unrelated comments; inspect specific evidence before "
+            "drawing a product conclusion."
+        )
+    else:
+        spoken = (
+            f"I found {data['total']} indexed items across {len(data['by_source'])} sources. "
+            f"{data['complaints']} are labeled complaints. The leading labeled issue categories "
+            f"are {top or 'not yet classified'}."
+        )
     return {
-        "spoken": (
-            f"I found {data['total']} feedback items across {len(data['by_source'])} sources. "
-            f"{data['complaints']} are complaints. The leading issue categories are {top or 'not yet classified'}."
-        ),
+        "spoken": spoken,
+        "data_quality_note": "Labels are automated and unreviewed rows may be included; inspect comments before product conclusions.",
+        "relevance_counts": coverage,
         **data,
     }
 
@@ -172,21 +229,40 @@ def query_feedback(
     body: QueryBody, store: StoreDep, x_voice_scope: ScopeHeader = None
 ) -> dict[str, Any]:
     organization_id, product_id = _verified_scope(x_voice_scope)
-    rows = store.search(
-        organization_id=organization_id, product_id=product_id,
-        query=body.query.strip() or None,
-        sources=[body.source.strip().lower()] if body.source.strip() else None,
-        limit=8,
-    )
+    author = body.author_id.strip()
+    author_match = re.fullmatch(r"(?:user\s+)?([0-9a-f]{5,32})", author, re.I) if author else None
+    if author and not author_match:
+        return {"spoken": "Use the five-character ID shown after User, such as User 6f77c.", "match_count": 0, "examples": []}
+    try:
+        posted_date, posted_month_day = _parse_posted_on(body.posted_on)
+    except ValueError as exc:
+        return {"spoken": str(exc), "match_count": 0, "examples": []}
+    filters = {
+        "organization_id": organization_id,
+        "product_id": product_id,
+        "query": body.query.strip() or None,
+        "sources": [re.sub(r"[\s_-]+", "", body.source).lower()] if body.source.strip() else None,
+        "author_prefix": author_match.group(1).lower() if author_match else None,
+        "external_id": body.comment_id.strip() or None,
+        "posted_date": posted_date,
+        "posted_month_day": posted_month_day,
+        # A named author or native ID should remain findable even when an
+        # earlier enrichment pass explicitly excluded that row.
+        "relevant_only": not bool(author_match or body.comment_id.strip()),
+    }
+    rows = store.search(**filters, limit=12)
     if not rows:
-        return {"spoken": "I could not find matching feedback for this product.", "count": 0, "examples": []}
-    sources = sorted({row.get("source", "unknown") for row in rows})
+        return {"spoken": "No indexed comments matched those fields for this product.", "match_count": 0, "examples": []}
+    total = store.count_matches(**filters)
     return {
         "spoken": (
-            f"I found {len(rows)} examples across {', '.join(sources)}. "
-            f"One says: {rows[0].get('content', '')[:200]}"
+            f"{total} indexed items match. Showing {len(rows)} examples. "
+            "Check each comment's content for actual product relevance before citing it."
         ),
-        "count": len(rows),
+        "match_count": total,
+        "returned_count": len(rows),
+        "date_scope": "all years" if posted_month_day else "exact UTC day" if posted_date else None,
+        "relevance_note": "Relevance labels are provisional; null means unreviewed.",
         "examples": [_example(row) for row in rows],
     }
 
@@ -206,18 +282,20 @@ def challenge_finding(
         return {"spoken": f"I found no matching feedback about {topic}.", "sample_size": 0}
     by_source = Counter(row.get("source", "unknown") for row in rows)
     by_sentiment = Counter(row.get("sentiment") or "unclassified" for row in rows)
-    counterexamples = [row for row in rows if row.get("sentiment") == "positive"][:3]
+    counterexamples = [
+        row for row in rows
+        if row.get("sentiment") == "positive" and row.get("relevant") is True
+    ][:3]
     return {
         "spoken": (
-            f"In a sample of {len(rows)} matching items, I found feedback from "
-            f"{len(by_source)} sources, including {by_sentiment.get('positive', 0)} positive "
-            f"and {by_sentiment.get('negative', 0)} negative items. "
-            "This is a sample, not a product-wide count."
+            f"I found a sample of {len(rows)} indexed matches across {len(by_source)} sources. "
+            "Review each comment for product relevance before using it as evidence."
         ),
         "claim": body.claim,
         "sample_size": len(rows),
         "by_source": dict(by_source),
         "by_sentiment": dict(by_sentiment),
+        "relevance_note": "Sentiment and relevance labels are provisional; this sample is not a product-wide count.",
         "examples": [_example(row) for row in rows[:5]],
         "counterexamples": [_example(row) for row in counterexamples],
     }

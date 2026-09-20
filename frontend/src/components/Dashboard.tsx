@@ -337,7 +337,7 @@ function titleCase(value:string){return value.replaceAll('_',' ').replace(/\b\w/
 function initials(value:string){return value.split(/\s|@/).filter(Boolean).slice(0,2).map((item)=>item[0]).join('').toUpperCase()}
 function errorMessage(error:unknown){return error instanceof Error?error.message:'Something went wrong'}
 function shortHash(value:string){return value?`User ${value.slice(0,5)}`:'Anonymous'}
-function shortDate(value:string){return new Date(value).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+function shortDate(value:string){return new Date(value).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'})}
 function relativeDate(value:string){const days=Math.floor((Date.now()-new Date(value).getTime())/86400000);return days<=0?'today':days===1?'1d ago':days<30?`${days}d ago`:shortDate(value)}
 function isoDaysAgo(days:number){return new Date(Date.now()-days*86400000).toISOString()}
 /** Rank evidence without letting one source monopolize the list.
