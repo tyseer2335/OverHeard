@@ -15,11 +15,11 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from .analysis import CommentAnalyzer
 from .collect import CollectionResult, collect, collect_plan
 from .enrich import enrich_records
 from .feedback import from_source_documents
 from .feedback_store import FeedbackStore
+from .llm_analysis import LLMAnalyzer
 from .planner import CollectionPlan, fallback_plan, plan_collection
 
 log = logging.getLogger("product_voice.collect_service")
@@ -93,11 +93,11 @@ class FeedbackCollectionService:
     def __init__(
         self,
         store: FeedbackStore,
-        analyzer: CommentAnalyzer | None = None,
+        analyzer: LLMAnalyzer | None = None,
         browserbase_targets: list[str] | None = None,
     ) -> None:
         self.store = store
-        self.analyzer = analyzer or CommentAnalyzer()
+        self.analyzer = analyzer or LLMAnalyzer()
         self.browserbase_targets = browserbase_targets
 
     def collect_for_product(

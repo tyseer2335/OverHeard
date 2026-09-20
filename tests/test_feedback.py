@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from product_voice.enrich import enrich_records, is_relevant
+from product_voice.enrich import enrich_records
 from product_voice.feedback import (
     FeedbackRecord,
     from_source_document,
@@ -108,38 +108,51 @@ def test_batch_conversion() -> None:
     assert len(from_source_documents([_doc(), _doc(id="steam_2")], "o", "p")) == 2
 
 
-# -------------------------------------------------------------- relevance
-def test_relevance_accepts_context_bound_comment_without_product_name() -> None:
-    # a comment under the product's own video is on-topic by construction
-    assert is_relevant(
-        "The driving physics feel awful.", "Cyberpunk 2077", "youtube", "Cyberpunk 2077 Review"
-    )
+# -------------------------------------------------------------- enrichment
+def test_enrichment_uses_the_llm_result() -> None:
+    from product_voice.llm_analysis import AnalysisResult
 
+    class _Stub:
+        def available(self) -> bool:
+            return True
 
-def test_relevance_rejects_dictionary_sense_usage() -> None:
-    assert not is_relevant(
-        "The notion of appealing to intuition is serious.", "Notion", "hackernews", ""
-    )
+        def analyze_many(self, texts, product):
+            return [
+                AnalysisResult(
+                    relevant=True,
+                    sentiment="negative",
+                    sentiment_score=-0.8,
+                    kind="complaint",
+                    issue_categories=["reliability"],
+                    summary="crashes on PS5",
+                )
+                for _ in texts
+            ]
 
-
-def test_relevance_accepts_product_sense_usage() -> None:
-    assert is_relevant(
-        "Notion app is slow once the workspace grows.", "Notion", "hackernews", ""
-    )
-
-
-def test_relevance_rejects_unrelated_text_from_open_sources() -> None:
-    assert not is_relevant(
-        "A rant about politics and taxes.", "Notion", "hackernews", "Ask HN: taxes"
-    )
-
-
-def test_enrichment_fills_analysis_fields() -> None:
     records = from_source_documents([_doc()], "org-1", "prod-1")
-    enrich_records(records, "Cyberpunk 2077")
+    enrich_records(records, "Cyberpunk 2077", _Stub())
+    record = records[0]
+
+    assert record.sentiment == "negative"
+    assert record.is_complaint is True
+    assert record.issue_categories == ["reliability"]
+    assert record.relevant is True
+    assert record.source_metadata["summary"] == "crashes on PS5"
+
+
+def test_enrichment_falls_back_to_lexicon_without_an_llm() -> None:
+    class _Unavailable:
+        def available(self) -> bool:
+            return False
+
+        def analyze_many(self, texts, product):  # pragma: no cover
+            raise AssertionError("must not be called")
+
+    records = from_source_documents([_doc()], "org-1", "prod-1")
+    enrich_records(records, "Cyberpunk 2077", _Unavailable())
     record = records[0]
 
     assert record.sentiment in {"positive", "negative", "neutral"}
-    assert record.is_complaint is True
-    assert "reliability" in record.issue_categories
-    assert record.relevant is True
+    # relevance is left unknown rather than guessed, so the row stays visible
+    assert record.relevant is None
+    assert record.source_metadata["analysis"] == "lexicon_fallback"

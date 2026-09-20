@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Let the LLM choose sources and write several queries per source "
              "(much higher volume). Falls back to rules without OPENAI_API_KEY.",
     )
-    parser.add_argument("--model", default="gpt-4o-mini", help="Planner model")
+    parser.add_argument("--model", default=None, help="Planner model override")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
 
@@ -78,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.plan:
         from .planner import plan_collection
 
-        plan = plan_collection(args.product, model=args.model)
+        plan = plan_collection(args.product, **({'model': args.model} if args.model else {}))
         print(plan.summary())
         print()
         result = collect_plan(

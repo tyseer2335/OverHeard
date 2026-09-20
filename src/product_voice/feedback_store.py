@@ -30,6 +30,9 @@ log = logging.getLogger("product_voice.feedback_store")
 
 DEFAULT_INDEX = "product-feedback"
 
+#: Never worth shipping to the UI.
+_SRC_EXCLUDE: list[str] = []
+
 FEEDBACK_MAPPING: dict[str, Any] = {
     "settings": {
         "analysis": {
@@ -220,24 +223,88 @@ class FeedbackStore:
         since: str | None = None,
         limit: int = 20,
         relevant_only: bool = True,
+        balanced: bool = True,
     ) -> list[dict]:
+        """Top feedback rows.
+
+        ``balanced`` splits the quota evenly across sources instead of taking
+        the global top-N by engagement. That global sort is unusable here
+        because engagement is not comparable between sources — measured on one
+        product, YouTube's top scores were 8843/8288/7453 while Steam's were
+        4/3/2 and Browserbase's were 0. Sorting on the raw number returned
+        100/100 YouTube, so the other sources could never reach the UI at all.
+        """
         filters = self._tenant_filter(
             organization_id, product_id, sources, language, since, relevant_only
         )
         if complaints_only:
             filters.append({"term": {"is_complaint": True}})
         must = [{"match": {"content": query}}] if query else []
-        response = self.client.search(
+        body = {"bool": {"filter": filters, "must": must}}
+
+        # A text query ranks by relevance, which IS comparable across sources.
+        if query or not balanced:
+            response = self.client.search(
+                index=self.index,
+                size=limit,
+                query=body,
+                sort=(
+                    ["_score"]
+                    if query
+                    else [{"engagement.score": "desc"}, {"published_at": "desc"}]
+                ),
+            )
+            return [hit["_source"] for hit in response["hits"]["hits"]]
+
+        return self._balanced_search(body, limit)
+
+    def _balanced_search(self, body: dict, limit: int) -> list[dict]:
+        """Take the best rows from each source, then interleave them."""
+        present = self.client.search(
             index=self.index,
-            size=limit,
-            query={"bool": {"filter": filters, "must": must}},
-            sort=(
-                ["_score"]
-                if query
-                else [{"engagement.score": "desc"}, {"published_at": "desc"}]
-            ),
+            size=0,
+            query=body,
+            aggs={"sources": {"terms": {"field": "source", "size": 20}}},
+        )["aggregations"]["sources"]["buckets"]
+        if not present:
+            return []
+
+        per_source = max(1, -(-limit // len(present)))
+        grouped = self.client.search(
+            index=self.index,
+            size=0,
+            query=body,
+            aggs={
+                "sources": {
+                    "terms": {"field": "source", "size": 20},
+                    "aggs": {
+                        "top": {
+                            "top_hits": {
+                                "size": per_source,
+                                "sort": [
+                                    {"engagement.score": "desc"},
+                                    {"published_at": "desc"},
+                                ],
+                                "_source": {"excludes": _SRC_EXCLUDE},
+                            }
+                        }
+                    },
+                }
+            },
         )
-        return [hit["_source"] for hit in response["hits"]["hits"]]
+
+        lanes = [
+            [h["_source"] for h in bucket["top"]["hits"]["hits"]]
+            for bucket in grouped["aggregations"]["sources"]["buckets"]
+        ]
+        # Round-robin so the caller sees a mix even if it only reads the first
+        # handful, rather than one source's block followed by another's.
+        out: list[dict] = []
+        for i in range(per_source):
+            for lane in lanes:
+                if i < len(lane) and len(out) < limit:
+                    out.append(lane[i])
+        return out
 
     def analytics(
         self,

@@ -30,6 +30,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from html import unescape
+
+import httpx
 from datetime import datetime
 from typing import Any, Iterable
 from urllib.parse import urlparse
@@ -124,6 +127,7 @@ class BrowserbaseSource(SourceAdapter):
         from stagehand.browser import browserbase as bb
 
         subject = query or product
+        quota_exhausted = False
         docs: list[SourceDocument] = []
         seen_urls: set[str] = set()
         per_domain: dict[str, int] = {}
@@ -164,24 +168,35 @@ class BrowserbaseSource(SourceAdapter):
                     continue
                 seen_urls.add(url)
 
-                try:
-                    page = await bb.fetch(
-                        api_key=self.api_key,
-                        url=url,
-                        format="markdown",
-                        **({"proxies": True} if self.use_proxies else {}),
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    # 402 means the plan's fetch quota is gone. Every later
-                    # fetch will fail the same way, so stop and say so rather
-                    # than grinding through the list and reporting a silent
-                    # zero that looks like "no opinions found".
-                    if "402" in str(exc):
-                        raise SourceError(
-                            "Browserbase fetch quota exhausted (HTTP 402) — "
-                            "the plan's included fetches are used up"
-                        ) from exc
-                    log.warning("fetch failed for %s: %s", url, exc)
+                page = None
+                if not quota_exhausted:
+                    try:
+                        page = await bb.fetch(
+                            api_key=self.api_key,
+                            url=url,
+                            format="markdown",
+                            **({"proxies": True} if self.use_proxies else {}),
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        # 402 = the plan's fetch quota is gone. Browserbase
+                        # search still works and already handed us the URLs,
+                        # and these are ordinary public pages, so fetch them
+                        # directly rather than losing the whole source. Every
+                        # later Browserbase fetch would 402 too, so switch
+                        # over for the rest of the run.
+                        if "402" in str(exc):
+                            log.warning(
+                                "browserbase fetch quota exhausted (402) — "
+                                "falling back to direct HTTP for this run"
+                            )
+                            quota_exhausted = True
+                        else:
+                            log.warning("fetch failed for %s: %s", url, exc)
+                            continue
+
+                if page is None:
+                    page = _direct_fetch(url)
+                if page is None:
                     continue
 
                 if page.status_code >= 400:
@@ -294,3 +309,63 @@ def _run_sync(coro):
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         return pool.submit(asyncio.run, coro).result()
+
+
+#: Mirrors the shape of a Browserbase fetch result so the caller does not care
+#: which path produced the page.
+class _Page:
+    def __init__(self, content: str, status_code: int) -> None:
+        self.content = content
+        self.status_code = status_code
+
+
+_SCRIPT_RE = re.compile(r"<(script|style|noscript|svg)\b.*?</\1>", re.S | re.I)
+_TAG_RE = re.compile(r"<[^>]+>")
+_BLOCK_END_RE = re.compile(r"</(p|div|li|h[1-6]|section|article|br)\s*>", re.I)
+
+_DIRECT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/128.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+def _direct_fetch(url: str) -> "_Page | None":
+    """Fetch a page over plain HTTP, as a fallback for Browserbase's fetch.
+
+    Used when the Browserbase fetch quota is exhausted. These are ordinary
+    public review pages, so a normal GET is enough; the pages that genuinely
+    need a browser (CAPTCHA/login walls) are already excluded by
+    ``BLOCKED_DOMAINS``.
+    """
+    try:
+        response = httpx.get(
+            url, headers=_DIRECT_HEADERS, timeout=20.0, follow_redirects=True
+        )
+    except httpx.HTTPError as exc:
+        log.info("direct fetch failed for %s: %s", _domain(url), exc)
+        return None
+
+    if response.status_code >= 400:
+        log.info("direct fetch %s -> HTTP %s", _domain(url), response.status_code)
+        return None
+    return _Page(_html_to_text(response.text), response.status_code)
+
+
+def _html_to_text(html: str) -> str:
+    """Crude HTML to text.
+
+    Block-level closing tags become paragraph breaks first, because the
+    paragraph splitter downstream is what separates one opinion from the next;
+    stripping tags without them collapses a whole page into one blob.
+    """
+    text = _SCRIPT_RE.sub(" ", html)
+    text = _BLOCK_END_RE.sub("\n\n", text)
+    text = _TAG_RE.sub(" ", text)
+    # stdlib, not a hand-written entity table: pages carry numeric entities
+    # (&#039;) as readily as named ones, and a partial table leaks them into
+    # the text the model then has to read.
+    text = unescape(text).replace("\xa0", " ")
+    return _MULTI_NL.sub("\n\n", text).strip()

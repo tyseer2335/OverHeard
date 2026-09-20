@@ -328,3 +328,47 @@ analysis layer can be scored rather than trusted:
 reviews positive — sarcasm ("10/10 would crash again") defeats it. Replacing
 VADER with an LLM classifier on the complaint path is the highest-value
 analytics fix, and Steam is how you prove it worked.
+
+
+## Analysis: LLM, not lexicon
+
+Sentiment, relevance, intent and issue categories all come from a single model
+(`gpt-5.6-sol`) reading each comment, batched 25 at a time. VADER remains only
+as a degraded fallback for when the model is unreachable.
+
+### Why VADER was replaced
+
+VADER is a 7,506-word dictionary plus five rules — it never reads a sentence,
+it adds up word scores. Measured against Steam's `voted_up` ground truth it
+agreed 78% overall but called **55% of genuinely negative reviews positive**,
+because sarcasm inverts meaning without changing vocabulary:
+
+| text | VADER | LLM |
+|---|---|---|
+| "I love how it deletes my data" | positive | **negative** |
+| "Great, another update that broke everything" | positive | **negative** |
+| "this thing is sick, best purchase all year" | negative | **positive** |
+| "great video man keep it up" | positive | **irrelevant** |
+
+That last row is the important one. VADER could not judge *relevance* at all,
+and neither could keyword rules — they cannot tell "the notion that..." from
+"Notion is slow", or a comment about the video from a comment about the
+product. That was most of the noise in the dashboard.
+
+### What it caught that nothing else could
+
+Collecting "Notion" from YouTube returns comments about a **song** called
+Notion by The Rare Occasions. The analyzer marked all 113 irrelevant —
+correctly. Re-running with "Notion app" produced 24 relevant rows with
+summaries like *"Creating task pages feels harder than completing the tasks"*.
+
+### Cost and failure behaviour
+
+One call per batch of 25, not per comment — roughly 5 comments/second. Every
+failure path degrades instead of blocking: an unreachable model, unparseable
+JSON, or a dropped row falls back to lexicon scoring with `relevant = null`,
+which stays visible downstream. Losing a real complaint is worse than showing a
+questionable row.
+
+Note `gpt-5.x` rejects any `temperature` but the default; passing one fails the
+call with a 400.

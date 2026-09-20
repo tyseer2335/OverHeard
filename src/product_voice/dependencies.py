@@ -9,6 +9,7 @@ from .config import get_settings
 from .collect_service import FeedbackCollectionService
 from .elastic import CommentStore, create_elastic_client
 from .feedback_store import DEFAULT_INDEX, FeedbackStore
+from .llm_analysis import LLMAnalyzer
 from .service import IngestionService
 from .models import AuthContext
 from .supabase import SupabaseClient, SupabaseError
@@ -70,4 +71,4 @@ def get_feedback_store() -> FeedbackStore:
 
 @lru_cache
 def get_collection_service() -> FeedbackCollectionService:
-    return FeedbackCollectionService(get_feedback_store(), CommentAnalyzer())
+    return FeedbackCollectionService(get_feedback_store(), LLMAnalyzer())

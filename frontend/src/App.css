@@ -30,3 +30,55 @@
 .sources-live>div span{width:28px;height:26px;padding:0;display:grid;place-items:center}.sources-live>div svg{width:15px;height:15px}.sources-live>div span:first-child svg{color:#ff3b30}.sources-live>div span:nth-child(2) svg{color:#ff6534}.sources-live>div span:nth-child(3) svg{color:#ff6600}.sources-live>div span:nth-child(4) svg{color:var(--text)}
 .action-section{margin-bottom:14px}.action-section>.section-head{padding-left:0;padding-right:0}.executive-actions{display:grid;gap:9px}.executive-action{min-height:112px;padding:17px;display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:14px;align-items:start}.executive-action>span{color:var(--accent);font:500 10px 'IBM Plex Mono'}.executive-action h2{margin:0 0 7px;font-size:15px;font-weight:500}.executive-action p{margin:0;color:var(--text-2);font-size:11px;line-height:1.55}.executive-action small{display:block;margin-top:9px;color:var(--muted);font:400 9px 'IBM Plex Mono'}.executive-action button{align-self:center;border:0;background:transparent;color:var(--accent);display:flex;align-items:center;gap:6px;font-size:10px;white-space:nowrap}.executive-action button svg{width:13px}.overview-evidence{margin-top:14px;padding-bottom:14px}.overview-evidence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:0 14px}.overview-evidence-grid .evidence-card{margin:0}.issues-table.simple th:nth-child(n+3),.issues-table.simple td:nth-child(n+3){text-align:right}.sentiment-label{display:inline-flex;padding:4px 7px;border-radius:99px;background:#202020;color:var(--text-2);font:500 8px 'IBM Plex Mono';text-transform:uppercase}.sentiment-label.negative{background:rgba(248,113,113,.08)}.sentiment-label.positive{background:rgba(74,222,128,.08)}.sentiment-label.mixed{color:var(--warning);background:rgba(251,191,36,.08)}.primary-action h2{margin:8px 0 6px;font-size:18px;font-weight:500}.primary-action .mono-label:nth-of-type(2){display:block;margin-top:18px}
 @media(max-width:900px){.overview-evidence-grid{grid-template-columns:1fr}.executive-action{grid-template-columns:28px 1fr}.executive-action>button{grid-column:2;justify-self:start}}
+
+/* Product rows: select on the left, delete on the right.
+   The product button is no longer a direct child of .ov-nav, so the
+   `.ov-nav>button` rule no longer reaches it — its layout is restored here. */
+.product-row{display:flex;align-items:center;border-radius:7px}
+.product-row:hover,.product-row.active{background:var(--hover)}
+.product-row>.product-link{flex:1;min-width:0;height:36px;padding:0 4px 0 9px;border:0;border-radius:7px;background:transparent;color:var(--text-2);display:flex;align-items:center;gap:10px;font-size:12px;text-align:left;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.product-row:hover>.product-link,.product-row.active>.product-link{color:var(--text)}
+/* Hidden until hover so the nav does not read as a row of destructive buttons. */
+.product-remove{width:26px;height:26px;margin-right:4px;border:0;border-radius:6px;background:transparent;color:var(--muted);display:grid;place-items:center;opacity:0;transition:opacity .14s,color .14s,background .14s;flex-shrink:0}
+.product-row:hover .product-remove,.product-remove:focus-visible{opacity:1}
+.product-remove:hover{color:var(--danger);background:rgba(248,113,113,.12)}
+
+/* Destructive confirmation. */
+.danger-body{display:grid;grid-template-columns:38px 1fr;gap:12px;align-items:start;margin:18px 0 20px}
+.danger-icon{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:var(--danger);background:rgba(248,113,113,.12)}
+.danger-body p{color:var(--text-2);font-size:12.5px;line-height:1.6;margin:2px 0 0}
+.danger-body b{color:var(--text)}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px}
+.button.danger{background:var(--danger);border-color:var(--danger);color:#1a0a0a;font-weight:600}
+.button.danger:hover:not(:disabled){filter:brightness(1.08)}
+.button.danger:disabled{opacity:.6}
+
+/* Per-comment sentiment. The dot carries the colour, the word carries the
+   meaning — colour alone fails for colour-blind users and in screenshots. */
+.sentiment-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 7px;border-radius:20px;font:500 9px 'IBM Plex Mono';letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+.sentiment-badge i{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sentiment-badge.positive{color:var(--success);background:rgba(74,222,128,.12)}
+.sentiment-badge.positive i{background:var(--success)}
+.sentiment-badge.negative{color:var(--danger);background:rgba(248,113,113,.12)}
+.sentiment-badge.negative i{background:var(--danger)}
+.sentiment-badge.neutral{color:var(--muted);background:rgba(255,255,255,.06)}
+.sentiment-badge.neutral i{background:var(--muted)}
+/* A tinted left edge makes the split scannable down a long list without
+   forcing the reader to check every badge. */
+.evidence-card{border-left:2px solid transparent}
+.evidence-card.tone-positive{border-left-color:var(--success)}
+.evidence-card.tone-negative{border-left-color:var(--danger)}
+.evidence-card.tone-neutral{border-left-color:var(--border)}
+
+/* The detail page is now a single column: evidence gets the full width, and
+   the integration destinations sit below it as a horizontal row rather than a
+   narrow right rail. */
+.detail-page .detail-grid{grid-template-columns:1fr}
+.detail-page .detail-left{min-width:0}
+.send-card-wide{margin-top:14px}
+.send-card-wide .destination-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:8px;margin:12px 0 14px}
+.send-card-wide .destination{display:flex;align-items:center;gap:9px;padding:10px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface-2);margin:0}
+.send-card-wide .destination b{flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.send-card-wide .destination small{display:flex;align-items:center;gap:5px;color:var(--success);font-size:10px;white-space:nowrap}
+.send-card-wide .destination small i{width:5px;height:5px;border-radius:50%;background:var(--success)}
+.send-card-wide .button.full{max-width:280px}

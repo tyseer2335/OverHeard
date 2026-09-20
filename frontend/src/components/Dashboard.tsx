@@ -4,8 +4,7 @@ import {
   ArrowLeft, ArrowRight, ArrowUpRight, BarChart3, Check,
   ChevronDown, CircleDot, Command, ExternalLink, Inbox, Layers3, LoaderCircle,
   LogOut, Menu, Mic, PackageSearch, Plus, RefreshCw,
-  Search, Send, Settings, ThumbsUp, X, Zap,
-} from 'lucide-react'
+  Search, Send, Settings, ThumbsUp, Trash2, TriangleAlert, X, Zap } from 'lucide-react'
 import { FaHackerNews, FaRedditAlien, FaXTwitter, FaYoutube } from 'react-icons/fa6'
 import { api } from '../lib/api'
 import type { Analytics, IngestionJob, IngestResult, Organization, Product, ProductComment } from '../types'
@@ -38,6 +37,8 @@ export function Dashboard({ session, supabase, notify }: DashboardProps) {
   const [detailId, setDetailId] = useState(() => detailFromPath(location.pathname))
   const [mobileNav, setMobileNav] = useState(false)
   const [showAddProduct, setShowAddProduct] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [showIngest, setShowIngest] = useState(false)
   const [showVox, setShowVox] = useState(false)
   const [showCommand, setShowCommand] = useState(false)
@@ -105,11 +106,29 @@ export function Dashboard({ session, supabase, notify }: DashboardProps) {
     setProducts((items) => [...items, created]); setProduct(created); setShowAddProduct(false); notify(`${name} added`)
   }
 
+  async function removeProduct(target: Product) {
+    setDeleting(true)
+    try {
+      await api.deleteProduct(token, target.id)
+      const remaining = products.filter((item) => item.id !== target.id)
+      setProducts(remaining)
+      // Clear the view if the deleted product was selected, so the dashboard
+      // never shows a dead product's numbers.
+      if (product?.id === target.id) setProduct(remaining[0] || null)
+      setDeleteTarget(null)
+      notify(`${target.name} deleted`)
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Could not delete product', 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   if (loading) return <FullPageLoader />
   if (!organization) return <WorkspaceOnboarding onCreate={createWorkspace} onSignOut={() => supabase.auth.signOut()} />
 
   return <div className="ov-app">
-    <Sidebar organization={organization} products={products} product={product} view={view} session={session}
+    <Sidebar organization={organization} products={products} product={product} view={view} session={session} onDelete={setDeleteTarget}
       onNavigate={navigate} onProduct={setProduct} onAdd={() => setShowAddProduct(true)} onDialog={setDialog}
       onSignOut={() => supabase.auth.signOut()} mobile={mobileNav} onClose={() => setMobileNav(false)} issueCount={issues.length} />
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
@@ -127,6 +146,7 @@ export function Dashboard({ session, supabase, notify }: DashboardProps) {
       </>}
     </main>
     {showAddProduct && <ProductModal onClose={() => setShowAddProduct(false)} onSubmit={createProduct} />}
+    {deleteTarget && <DeleteProductModal product={deleteTarget} busy={deleting} onCancel={() => setDeleteTarget(null)} onConfirm={() => void removeProduct(deleteTarget)} />}
     {showIngest && product && <IngestModal product={product} token={token} onClose={() => setShowIngest(false)} onComplete={(text) => { notify(text); void loadData(product) }} />}
     {showVox && <VoxPanel issues={issues} onClose={() => setShowVox(false)} onOpenIssue={(id) => { setShowVox(false); navigate('detail', id) }} />}
     {showCommand && <CommandPalette issues={issues} onClose={() => setShowCommand(false)} onNavigate={(next, id) => { setShowCommand(false); navigate(next, id) }} />}
@@ -134,9 +154,9 @@ export function Dashboard({ session, supabase, notify }: DashboardProps) {
   </div>
 }
 
-function Sidebar({ organization, products, product, view, session, mobile, issueCount, onNavigate, onProduct, onAdd, onDialog, onSignOut, onClose }: {
+function Sidebar({ organization, products, product, view, session, mobile, issueCount, onNavigate, onProduct, onAdd, onDelete, onDialog, onSignOut, onClose }: {
   organization: Organization; products: Product[]; product: Product | null; view: View; session: Session; mobile: boolean; issueCount: number
-  onNavigate: (view: View) => void; onProduct: (product: Product) => void; onAdd: () => void; onDialog: (kind: 'integrations' | 'settings') => void; onSignOut: () => void; onClose: () => void
+  onNavigate: (view: View) => void; onProduct: (product: Product) => void; onAdd: () => void; onDelete: (product: Product) => void; onDialog: (kind: 'integrations' | 'settings') => void; onSignOut: () => void; onClose: () => void
 }) {
   return <aside className={`ov-sidebar ${mobile ? 'open' : ''}`}>
     <div className="ov-brand"><span className="overheard-logo" role="img" aria-label="Overheard"/><button className="mobile-close" onClick={onClose}><X size={18}/></button></div>
@@ -147,7 +167,11 @@ function Sidebar({ organization, products, product, view, session, mobile, issue
       <NavButton active={view === 'issues' || view === 'detail'} icon={<CircleDot/>} onClick={() => onNavigate('issues')}>Pain points <em>{issueCount}</em></NavButton>
       <NavButton active={view === 'evidence'} icon={<Inbox/>} onClick={() => onNavigate('evidence')}>Evidence</NavButton>
       <NavLabel action={onAdd}>Products</NavLabel>
-      {products.map((item) => <button key={item.id} className={`product-link ${item.id === product?.id ? 'active' : ''}`} onClick={() => { onProduct(item); onNavigate('overview') }}><i/>{item.name}</button>)}
+      {/* A row, not a single button: the delete control cannot nest inside the select button. */}
+      {products.map((item) => <div key={item.id} className={`product-row ${item.id === product?.id ? 'active' : ''}`}>
+        <button className="product-link" onClick={() => { onProduct(item); onNavigate('overview') }}><i/>{item.name}</button>
+        <button className="product-remove" title={`Delete ${item.name}`} aria-label={`Delete ${item.name}`} onClick={() => onDelete(item)}><Trash2 size={13}/></button>
+      </div>)}
     </nav>
     <div className="ov-sidebar-bottom">
       <button onClick={() => onDialog('integrations')}><Zap/>Integrations</button>
@@ -185,7 +209,8 @@ function IssuesPage({ issues, onIssue, onNew }: { issues: Issue[]; onIssue: (id:
 function IssueDetail({ issue, onBack, onVox, onTicket }: { issue: Issue; onBack: () => void; onVox: () => void; onTicket: () => void }) {
   const [source, setSource] = useState('all'); const [connect, setConnect] = useState<string | null>(null)
   const evidence = rankEvidence(issue.evidence.filter((item) => source === 'all' || item.source === source)).slice(0,10)
-  return <div className="ov-page detail-page"><button className="back-link" onClick={onBack}><ArrowLeft/>All pain points</button><div className="detail-heading"><div><h1><SeverityDot severity={issue.severity}/>{issue.title}</h1><p>{issue.summary}</p><div className="meta-row"><span>Category <b>{titleCase(issue.category)}</b></span><span>Priority <b className="negative">{issue.severity}</b></span><span>Comments <b>{issue.mentions}</b></span><span>Sources <b>{issue.sources.join(', ') || '—'}</b></span></div></div><button className="outline-accent" onClick={onVox}><Mic/>Ask Vox about this</button></div><div className="detail-grid"><div className="detail-left"><section className="surface action-card primary-action"><span className="mono-label">Recommended action</span><h2>Address {issue.title.toLowerCase()}</h2><p>Review the highest-impact customer examples with the product owner, validate where the problem occurs, and prioritize a targeted improvement to the {issue.category} experience.</p><span className="mono-label">Next steps</span><ol><li>Review the customer comments below with Product and Support.</li><li>Confirm the affected workflow using internal product data.</li><li>Assign an owner and scope the smallest meaningful fix.</li></ol></section><section className="surface detail-evidence"><SectionHead title="Evidence" subtitle={`Top ${Math.min(10,evidence.length)} comments by impact and engagement`}/><div className="source-tabs"><button className={source === 'all' ? 'active' : ''} onClick={() => setSource('all')}>All</button>{issue.sources.map((item) => <button key={item} className={source === item ? 'active' : ''} onClick={() => setSource(item)}>{titleCase(item)}</button>)}</div>{evidence.map((item) => <EvidenceCard key={`${item.source}-${item.external_id}`} item={item} expanded/>)}{!evidence.length && <Empty title="No evidence in this source" text="Choose another source tab."/>}</section></div><aside className="detail-right"><section className="surface send-card"><SectionHead title="Send this pain point" subtitle="Create work where your team already operates"/>{['Linear','GitHub','Jira','Salesforce','Slack'].map((item) => <div className="destination" key={item}><span>{item.slice(0,2).toUpperCase()}</span><b>{item}</b>{item === 'Linear' ? <small><i/>Connected</small> : <button onClick={() => setConnect(item)}>Connect</button>}</div>)}<button className="button accent full" onClick={onTicket}><ArrowUpRight/>Create ticket in Linear</button></section></aside></div>{connect && <Modal title={`Connect ${connect}`} subtitle="Authorize Overheard to send this pain point and its supporting evidence to your workspace." onClose={() => setConnect(null)}><button className="button accent full" onClick={() => setConnect(null)}>Continue to {connect}</button></Modal>}</div>
+  return <div className="ov-page detail-page"><button className="back-link" onClick={onBack}><ArrowLeft/>All pain points</button><div className="detail-heading"><div><h1><SeverityDot severity={issue.severity}/>{issue.title}</h1><p>{issue.summary}</p><div className="meta-row"><span>Category <b>{titleCase(issue.category)}</b></span><span>Priority <b className="negative">{issue.severity}</b></span><span>Comments <b>{issue.mentions}</b></span><span>Sources <b>{issue.sources.join(', ') || '—'}</b></span></div></div><button className="outline-accent" onClick={onVox}><Mic/>Ask Vox about this</button></div><div className="detail-grid"><div className="detail-left"><section className="surface action-card primary-action"><span className="mono-label">Recommended action</span><h2>Address {issue.title.toLowerCase()}</h2><p>Review the highest-impact customer examples with the product owner, validate where the problem occurs, and prioritize a targeted improvement to the {issue.category} experience.</p><span className="mono-label">Next steps</span><ol><li>Review the customer comments below with Product and Support.</li><li>Confirm the affected workflow using internal product data.</li><li>Assign an owner and scope the smallest meaningful fix.</li></ol></section><section className="surface detail-evidence"><SectionHead title="Evidence" subtitle={`Top ${Math.min(10,evidence.length)} comments by impact and engagement`}/><div className="source-tabs"><button className={source === 'all' ? 'active' : ''} onClick={() => setSource('all')}>All</button>{issue.sources.map((item) => <button key={item} className={source === item ? 'active' : ''} onClick={() => setSource(item)}>{titleCase(item)}</button>)}</div>{evidence.map((item) => <EvidenceCard key={`${item.source}-${item.external_id}`} item={item} expanded/>)}{!evidence.length && <Empty title="No evidence in this source" text="Choose another source tab."/>}</section></div></div>
+    <section className="surface send-card send-card-wide"><SectionHead title="Send this pain point" subtitle="Create work where your team already operates"/><div className="destination-row">{['Linear','GitHub','Jira','Salesforce','Slack'].map((item) => <div className="destination" key={item}><span>{item.slice(0,2).toUpperCase()}</span><b>{item}</b>{item === 'Linear' ? <small><i/>Connected</small> : <button onClick={() => setConnect(item)}>Connect</button>}</div>)}</div><button className="button accent full" onClick={onTicket}><ArrowUpRight/>Create ticket in Linear</button></section>{connect && <Modal title={`Connect ${connect}`} subtitle="Authorize Overheard to send this pain point and its supporting evidence to your workspace." onClose={() => setConnect(null)}><button className="button accent full" onClick={() => setConnect(null)}>Continue to {connect}</button></Modal>}</div>
 }
 
 function EvidencePage({ comments }: { comments: ProductComment[] }) {
@@ -211,7 +236,30 @@ function CommandPalette({ issues, onClose, onNavigate }: { issues: Issue[]; onCl
   return <div className="modal-backdrop" onMouseDown={onClose}><div className="command-palette" onMouseDown={(e)=>e.stopPropagation()}><label><Search/><input autoFocus value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search pages and pain points…"/><kbd>ESC</kbd></label><span>Navigate</span>{[['Overview','overview'],['Pain points','issues'],['Evidence','evidence']].map(([label,next])=><button key={next} onClick={()=>onNavigate(next as View)}><Command/>{label}<ArrowRight/></button>)}{matches.length>0&&<span>Pain points</span>}{matches.map((issue)=><button key={issue.id} onClick={()=>onNavigate('detail',issue.id)}><SeverityDot severity={issue.severity}/>{issue.title}<ArrowRight/></button>)}</div></div>
 }
 
-function EvidenceCard({ item, expanded=false }: { item: ProductComment; expanded?: boolean }) { return <article className={`evidence-card ${expanded?'expanded':''}`}><p>“{item.content}”</p><footer><span className="source-mark">{item.source.slice(0,2).toUpperCase()}</span><span>{shortHash(item.author_hash)} · {titleCase(item.source)}{item.published_at ? ` · ${relativeDate(item.published_at)}` : ''}</span><b><ThumbsUp/>{item.engagement?.score || 0}</b>{item.url && <a href={item.url} target="_blank" rel="noreferrer" aria-label="Open source"><ExternalLink/></a>}</footer></article> }
+function EvidenceCard({ item, expanded=false }: { item: ProductComment; expanded?: boolean }) {
+  const tone = item.sentiment === 'positive' ? 'positive' : item.sentiment === 'negative' ? 'negative' : 'neutral'
+  return <article className={`evidence-card tone-${tone} ${expanded?'expanded':''}`}>
+    <p>“{item.content}”</p>
+    <footer>
+      <SentimentBadge sentiment={item.sentiment}/>
+      <span className="source-mark">{item.source.slice(0,2).toUpperCase()}</span>
+      <span>{shortHash(item.author_hash)} · {titleCase(item.source)}{item.published_at ? ` · ${relativeDate(item.published_at)}` : ''}</span>
+      <b><ThumbsUp/>{item.engagement?.score || 0}</b>
+      {item.url && <a href={item.url} target="_blank" rel="noreferrer" aria-label="Open source"><ExternalLink/></a>}
+    </footer>
+  </article>
+}
+
+/** Colour-coded sentiment for a single comment: green positive, red negative.
+ *  The word is kept alongside the dot — colour alone is not readable for
+ *  colour-blind users, and it disappears entirely in a screenshot. */
+function SentimentBadge({ sentiment }: { sentiment: ProductComment['sentiment'] }) {
+  const tone = sentiment === 'positive' ? 'positive' : sentiment === 'negative' ? 'negative' : 'neutral'
+  const label = sentiment === 'positive' ? 'Positive' : sentiment === 'negative' ? 'Negative' : 'Neutral'
+  return <span className={`sentiment-badge ${tone}`} title={`${label} sentiment`}>
+    <i aria-hidden="true"/>{label}
+  </span>
+}
 function PageHeader({ eyebrow, title, subtitle, actions }: { eyebrow?:string; title:string; subtitle:string; actions?:ReactNode }) { return <header className="page-header"><div>{eyebrow&&<span className="mono-label">{eyebrow}</span>}<h1>{title}</h1><p>{subtitle}</p></div>{actions&&<div className="page-actions">{actions}</div>}</header> }
 function SectionHead({ title, subtitle, action }: { title:string; subtitle:string; action?:ReactNode }) { return <header className="section-head"><div><h2>{title}</h2><p>{subtitle}</p></div>{action}</header> }
 function SeverityDot({ severity }: { severity:Severity }) { return <i className={`severity-dot ${severity}`} aria-label={`${severity} severity`}/> }
@@ -253,6 +301,21 @@ function IngestModal({product,token,onClose,onComplete}:{product:Product;token:s
   </Modal>
 }
 function InfoDialog({kind,onClose}:{kind:'integrations'|'settings';onClose:()=>void}) { return <Modal title={titleCase(kind)} subtitle={kind==='integrations'?'Manage where feedback comes from and where insights go.':'Workspace preferences and account controls.'} onClose={onClose}><div className="dialog-list">{(kind==='integrations'?['YouTube · Connected','Reddit · Available','Hacker News · Connected','Linear · Connected']:['Workspace access · Members only','Default range · 30 days','Evidence links · Enabled']).map((item)=><div key={item}><CircleDot/>{item}</div>)}</div></Modal> }
+function DeleteProductModal({ product, busy, onCancel, onConfirm }: {
+  product: Product; busy: boolean; onCancel: () => void; onConfirm: () => void
+}) {
+  return <Modal title={`Delete ${product.name}?`} subtitle="This cannot be undone." onClose={onCancel}>
+    <div className="danger-body">
+      <span className="danger-icon"><TriangleAlert size={19}/></span>
+      <p>This permanently deletes <b>{product.name}</b> and every piece of feedback collected for it. Other products are not affected.</p>
+    </div>
+    <div className="modal-actions">
+      <button className="button" onClick={onCancel} disabled={busy}>Cancel</button>
+      <button className="button danger" onClick={onConfirm} disabled={busy}>{busy ? <><LoaderCircle className="spin" size={15}/> Deleting…</> : <><Trash2 size={15}/> Delete product</>}</button>
+    </div>
+  </Modal>
+}
+
 function Modal({title,subtitle,onClose,children}:{title:string;subtitle:string;onClose:()=>void;children:ReactNode}) { return <div className="modal-backdrop"><div className="ov-modal" role="dialog" aria-modal="true"><button className="modal-close" onClick={onClose}><X/></button><h2>{title}</h2><p>{subtitle}</p>{children}</div></div> }
 function WorkspaceOnboarding({onCreate,onSignOut}:{onCreate:(company:string,product:string,query:string)=>Promise<void>;onSignOut:()=>void}) { const [company,setCompany]=useState('');const [product,setProduct]=useState('');const [query,setQuery]=useState('');const [busy,setBusy]=useState(false);return <main className="onboarding-page"><button onClick={onSignOut}>Sign out</button><form className="surface onboarding-card" onSubmit={async(e)=>{e.preventDefault();setBusy(true);await onCreate(company,product,query)}}><span className="overheard-logo large" role="img" aria-label="Overheard"/><h1>Create your workspace</h1><p>Add the first product you want Overheard to monitor.</p><label>Workspace<input value={company} onChange={(e)=>setCompany(e.target.value)} required/></label><label>Product<input value={product} onChange={(e)=>setProduct(e.target.value)} required/></label><label>Search query<input value={query} onChange={(e)=>setQuery(e.target.value)}/></label><button className="button accent full" disabled={busy}>{busy?<LoaderCircle className="spin"/>:'Create workspace'}</button></form></main> }
 function EmptyProducts({onAdd}:{onAdd:()=>void}) { return <div className="center-empty"><Layers3/><h1>Add your first product</h1><p>Connect a product to begin turning public conversations into grounded insight.</p><button className="button accent" onClick={onAdd}><Plus/>Add product</button></div> }
@@ -282,7 +345,34 @@ function shortHash(value:string){return value?`User ${value.slice(0,5)}`:'Anonym
 function shortDate(value:string){return new Date(value).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
 function relativeDate(value:string){const days=Math.floor((Date.now()-new Date(value).getTime())/86400000);return days<=0?'today':days===1?'1d ago':days<30?`${days}d ago`:shortDate(value)}
 function isoDaysAgo(days:number){return new Date(Date.now()-days*86400000).toISOString()}
-function rankEvidence(items:ProductComment[]){return [...items].sort((a,b)=>impact(b)-impact(a))}
+/** Rank evidence without letting one source monopolize the list.
+ *
+ *  Engagement is NOT comparable across sources: a YouTube like count runs to
+ *  the thousands, Hacker News points to tens, Steam votes_up often to single
+ *  digits. Sorting on the raw number therefore returns YouTube every time and
+ *  the multi-source claim silently becomes single-source. So rank within each
+ *  source first, then interleave round-robin — the best of each source before
+ *  the second-best of any. */
+function rankEvidence(items:ProductComment[]){
+  const bySource = new Map<string, ProductComment[]>()
+  for (const item of items) {
+    const list = bySource.get(item.source) || []
+    list.push(item)
+    bySource.set(item.source, list)
+  }
+  // Strongest source first on ties, so the lead item is still the best overall.
+  const ranked = [...bySource.values()].map((list) => list.sort((a,b)=>impact(b)-impact(a)))
+  ranked.sort((a,b)=>impact(b[0])-impact(a[0]))
+  const out:ProductComment[] = []
+  for (let i = 0; out.length < items.length; i++) {
+    let moved = false
+    for (const list of ranked) {
+      if (i < list.length) { out.push(list[i]); moved = true }
+    }
+    if (!moved) break
+  }
+  return out
+}
 function impact(item:ProductComment){return (item.engagement?.score||0)+(item.engagement?.replies||0)*2}
 function sentimentLabel(value:number){return value<=-20?'Negative':value>=20?'Positive':'Mixed'}
 function sentimentTone(value:number){return value<=-20?'negative':value>=20?'positive':'mixed'}

@@ -29,40 +29,55 @@ log = logging.getLogger("product_voice.planner")
 
 KNOWN_SOURCES = ("hackernews", "youtube", "browserbase", "steam", "lemmy")
 
+DEFAULT_PLANNER_MODEL = "gpt-5.6-sol"
+
 SYSTEM_PROMPT = """You plan data collection for a product-opinion research agent.
 
-Given a product, choose which sources to collect from and write search queries.
+Your queries decide what evidence the whole system sees. A vague query returns
+tutorials, sponsored reviews and unrelated chatter; a precise one returns people
+describing actual experience with the product.
 
 Sources:
-- hackernews: technical/developer discussion. Great for dev tools, software,
-  hardware enthusiasts. Weak for mainstream consumer goods.
-- youtube: video review comments. Broad consumer coverage, good for hardware,
-  games, apps.
-- browserbase: general web search + fetch. Review sites, forums, blogs, and
+- hackernews: technical/developer discussion. Strong for dev tools, infra,
+  software and hardware enthusiasts. Weak for mainstream consumer goods.
+- youtube: comments under review videos. Broad consumer coverage. Note the
+  comments are only as relevant as the video, so the query must describe a
+  video that is ABOUT this product.
+- browserbase: general web search + page fetch. Review sites, forums, blogs and
   aggregators that quote Reddit. Works for anything.
-- steam: Steam user reviews. ONLY for video games. Enormous volume when it
-  applies. Do not select it for non-games.
+- steam: Steam user reviews. ONLY for video games. Huge volume when it applies.
+  Never select it for non-games.
 - lemmy: federated Reddit-like community comments. Modest volume, skews
-  technical/privacy-minded audiences.
+  technical and privacy-minded.
 
-Rules:
-- Only select sources that can plausibly contain opinions about this product.
-- Write 3-6 queries per selected source, each targeting a DIFFERENT angle:
-  general opinion, specific complaints, comparisons, reliability, price.
-- If the product name is also a common English word (e.g. "Notion", "Arc"),
-  disambiguate every query with context words so results are about the
+Choosing sources:
+- Pick only sources that plausibly contain opinions about THIS product.
+- Fewer, better-targeted sources beat casting wide. Two strong sources are
+  better than five that each return noise.
+
+Writing queries — this is the part that matters:
+- Each query must target a DIFFERENT angle: overall verdict, specific
+  complaints, a named competitor comparison, reliability/bugs, price/value.
+- Aim at people REPORTING EXPERIENCE, not at marketing. Prefer wording that
+  attracts honest accounts ("problems", "after 6 months", "worth it",
+  "switched away", "regret") over bare product names.
+- If the product name is also an ordinary English word (Notion, Arc, Nothing,
+  Craft), every query MUST carry a disambiguating word so results are about the
   product, not the word.
-- QUERY LENGTH MATTERS, and differs by source:
-  * hackernews, lemmy and steam use KEYWORD AND-matching. Every extra word
-    shrinks the result set hard — "Notion productivity tool opinions" returns
-    7 hits where "Notion app" returns 33,000. Use 1-3 words MAX for these,
-    varying the product term and at most one qualifier
-    (e.g. "Notion app", "Notion pricing", "Notion slow").
-  * youtube and browserbase handle natural language well. Use fuller phrases
-    there (e.g. "Notion vs Obsidian honest comparison").
-- Return STRICT JSON only, no markdown fence:
-  {"reasoning": "one sentence",
-   "sources": [{"name": "hackernews", "queries": ["...", "..."]}]}"""
+- Include the product's own distinctive terms (model number, version, maker)
+  so results are about THIS product and not its predecessor.
+
+QUERY LENGTH IS PER-SOURCE, and getting it wrong destroys the result set:
+- hackernews, lemmy, steam use KEYWORD AND-matching: every extra word shrinks
+  results hard. "Notion productivity tool opinions" returns 7 hits where
+  "Notion app" returns 33,000. Use 1-3 words, varying one qualifier:
+  "Notion app", "Notion pricing", "Notion slow".
+- youtube and browserbase handle natural language: use full phrases like
+  "Notion vs Obsidian honest comparison after a year".
+
+Return STRICT JSON only, no markdown fence:
+{"reasoning": "one sentence on why these sources",
+ "sources": [{"name": "hackernews", "queries": ["...", "..."]}]}"""
 
 
 @dataclass
@@ -139,7 +154,7 @@ def _extract_json(raw: str) -> dict:
 
 def plan_collection(
     product: str,
-    model: str = "gpt-4o-mini",
+    model: str = DEFAULT_PLANNER_MODEL,
     api_key: str | None = None,
     allowed: tuple[str, ...] = KNOWN_SOURCES,
 ) -> CollectionPlan:
@@ -163,7 +178,9 @@ def plan_collection(
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"Product: {product}"},
             ],
-            temperature=0.3,
+            # No temperature: gpt-5.x rejects any value but the default, and
+            # passing one fails the whole call with a 400.
+            response_format={"type": "json_object"},
         )
         data = _extract_json(response.choices[0].message.content or "")
     except Exception as exc:  # noqa: BLE001 - planning must never block collection
