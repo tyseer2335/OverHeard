@@ -1,0 +1,15 @@
+# Fast, core sources
+requests                   # HN Algolia API + Reddit .json scraping
+google-api-python-client   # YouTube Data API v3
+
+# Agent + backend
+openai                     # GPT research agent
+fastapi                    # backend
+uvicorn[standard]          # ASGI server to run FastAPI
+pydantic                   # request models / schemas
+python-dotenv              # loads .env
+
+# Browser scraping (Reddit fallback + X/Instagram)
+browserbase                # cloud headless browsers
+playwright                 # drives the Browserbase browser (no local install needed)
+stagehand                  # AI web agent, used for X + Instagram
