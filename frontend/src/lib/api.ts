@@ -1,4 +1,4 @@
-import type { Analytics, IngestResult, Organization, Product, ProductComment, PublicConfig } from '../types'
+import type { Analytics, IngestionJob, IngestResult, Organization, Product, ProductComment, PublicConfig } from '../types'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -22,13 +22,20 @@ export const api = {
   products: (token: string, organizationId: string) => request<Product[]>(`/organizations/${organizationId}/products`, token),
   createProduct: (token: string, organizationId: string, data: { name: string; youtube_query?: string }) => request<Product>(`/organizations/${organizationId}/products`, token, { method: 'POST', body: JSON.stringify(data) }),
   deleteProduct: (token: string, productId: string) => request<void>(`/products/${productId}`, token, { method: 'DELETE' }),
-  analytics: (token: string, productId: string) => request<Analytics>(`/products/${productId}/analytics`, token),
-  comments: (token: string, productId: string, search = '', complaintsOnly = false, sources = '') => {
-    const params = new URLSearchParams({ limit: '12' })
+  analytics: (token: string, productId: string, since?: string, sources?: string) => {
+    const params = new URLSearchParams()
+    if (since) params.set('since', since)
+    if (sources) params.set('sources', sources)
+    const query = params.size ? `?${params}` : ''
+    return request<Analytics>(`/products/${productId}/analytics${query}`, token)
+  },
+  comments: (token: string, productId: string, search = '', complaintsOnly = false, sources = '', limit = 100) => {
+    const params = new URLSearchParams({ limit: String(limit) })
     if (search) params.set('q', search)
     if (complaintsOnly) params.set('complaints_only', 'true')
     if (sources) params.set('sources', sources)
     return request<ProductComment[]>(`/products/${productId}/comments?${params}`, token)
   },
+  ingestions: (token: string, productId: string) => request<IngestionJob[]>(`/products/${productId}/ingestions`, token),
   ingest: (token: string, productId: string, data: { depth: 'quick' | 'standard' | 'deep' }) => request<IngestResult>(`/products/${productId}/ingestions`, token, { method: 'POST', body: JSON.stringify(data) }),
 }

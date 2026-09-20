@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
-import { AlertCircle, CheckCircle2, LoaderCircle, MessageSquareText, X } from 'lucide-react'
+import { AlertCircle, CheckCircle2, LoaderCircle, X } from 'lucide-react'
 import { AuthScreen } from './components/AuthScreen'
 import { Dashboard } from './components/Dashboard'
 import { getSupabase } from './lib/supabase'
@@ -42,7 +42,7 @@ function App() {
     window.setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), 4200)
   }, [])
 
-  if (loading) return <div className="full-loader"><span className="brand-icon"><MessageSquareText size={20}/></span><LoaderCircle className="spin" size={25}/></div>
+  if (loading) return <div className="full-loader"><span className="overheard-logo" role="img" aria-label="Overheard"/><LoaderCircle className="spin" size={25}/></div>
   if (fatalError || !supabase) return <div className="fatal-state"><AlertCircle size={32}/><h1>Couldn’t connect</h1><p>{fatalError || 'Supabase configuration is unavailable.'}</p><button className="primary" onClick={() => window.location.reload()}>Try again</button></div>
 
   return <>

@@ -92,3 +92,18 @@ export interface IngestResult {
   plan_reasoning: string
   used_llm_planner: boolean
 }
+
+export interface IngestionJob {
+  id: string
+  organization_id: string
+  product_id: string
+  requested_by: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  videos_found: number
+  videos_processed: number
+  comments_indexed: number
+  error: string | null
+  started_at: string | null
+  completed_at: string | null
+  created_at: string
+}

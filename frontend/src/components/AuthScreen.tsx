@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ArrowRight, BarChart3, Check, Eye, EyeOff, LoaderCircle, MessageSquareText } from 'lucide-react'
+import { ArrowRight, BarChart3, Check, Eye, EyeOff, LoaderCircle } from 'lucide-react'
 
 export function AuthScreen({ supabase }: { supabase: SupabaseClient }) {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
@@ -40,7 +40,7 @@ export function AuthScreen({ supabase }: { supabase: SupabaseClient }) {
   return (
     <main className="auth-page">
       <section className="auth-story">
-        <div className="auth-brand"><span className="brand-icon"><MessageSquareText size={20} /></span> Product Voice</div>
+        <div className="auth-brand"><span className="overheard-logo large" role="img" aria-label="Overheard" /></div>
         <div className="story-copy">
           <div className="eyebrow light"><span /> Voice-of-customer intelligence</div>
           <h1>Build what your<br />customers are <em>asking for.</em></h1>
@@ -63,7 +63,7 @@ export function AuthScreen({ supabase }: { supabase: SupabaseClient }) {
       </section>
 
       <section className="auth-form-side">
-        <div className="auth-mobile-brand"><span className="brand-icon"><MessageSquareText size={20} /></span> Product Voice</div>
+        <div className="auth-mobile-brand"><span className="overheard-logo large" role="img" aria-label="Overheard" /></div>
         <div className="auth-card">
           <div className="auth-heading">
             <span className="section-kicker">{mode === 'signin' ? 'Welcome back' : 'Start listening'}</span>
