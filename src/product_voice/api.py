@@ -42,11 +42,13 @@ from .models import (
 from .service import IngestionService
 from .supabase import SupabaseClient, SupabaseError
 from .youtube import YouTubeAPIError
+from .voice import router as voice_router
 
 
 log = logging.getLogger("product_voice.api")
 
 app = FastAPI(title="Product Voice API", version="0.2.0")
+app.include_router(voice_router)
 
 try:
     origins = get_settings().cors_origin_list
