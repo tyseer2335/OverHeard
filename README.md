@@ -4,12 +4,12 @@
 
 Point it at a product name. It finds what people are actually saying across five
 platforms, throws away the noise, works out what they mean, and shows you ranked
-pain points — each backed by real quotes you can click through to the original.
+pain points, each backed by real quotes you can click through to the original.
 Then you can ask it questions out loud.
 
 ---
 
-## The problem
+## 🎯 The problem
 
 A product manager wants to know what customers really think. Today that means
 either reading scattered comments by hand for a week, or paying for a tool that
@@ -17,15 +17,15 @@ scrapes one platform and hands back a sentiment score with no receipts.
 
 A number nobody can trace is not a decision. **Evidence is the product.**
 
-## What makes it different
+## ✨ What makes it different
 
 **It reads, it does not keyword-match.** "I love how it deletes my data" is
 negative. "This thing is sick" is praise. A lexicon gets both backwards.
 
 **It knows what is not about your product.** Collecting "Notion" from YouTube
 returns comments about a *song* called Notion. Those get rejected, along with
-"first!!" and "great video man" — comments about the video rather than the
-product. That noise was most of what the dashboard used to show.
+"first!!" and "great video man", which are comments about the video rather than
+the product. That noise was most of what the dashboard used to show.
 
 **It refuses to pool incomparable sources.** On one product, YouTube's top
 engagement scores were 8843/8288/7453 while Steam's were 4/3/2. Sorting on that
@@ -33,13 +33,13 @@ number globally returned 100% YouTube and the other sources never reached the
 screen. Every metric now ships with a per-source breakdown, and evidence is
 balanced across sources.
 
-**It can be checked.** Steam publishes `voted_up` — the reviewer's own verdict.
+**It can be checked.** Steam publishes `voted_up`, the reviewer's own verdict.
 That gives a ground truth to score the analysis against, which is how we knew
 the old lexicon called 55% of genuinely negative reviews positive.
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ![Architecture](assets/D1.png)
 
@@ -91,14 +91,14 @@ shows every component, with planned-but-unbuilt pieces drawn dashed. The
 [collection sequence](assets/collection-flow.mmd) ([image](assets/D3.png))
 walks through a single run.
 
-### Exactly two model calls per run
+### 🧠 Exactly two model calls per run
 
 One to **plan** (which sources, what queries) and one to **classify** (in
 batches of 10). Everything in between is ordinary retrieval, deduplication and
-aggregation. Remove the model and the pipeline still runs — it just picks worse
+aggregation. Remove the model and the pipeline still runs. It just picks worse
 queries and classifies worse.
 
-### Three stores, on purpose
+### 🗄️ Three stores, on purpose
 
 | Store | Holds | Why separate |
 |---|---|---|
@@ -108,18 +108,18 @@ queries and classifies worse.
 
 ---
 
-## Quick start
+## 🚀 Quick start
 
-### Prerequisites
+### 📋 Prerequisites
 
 | | Version | Notes |
 |---|---|---|
 | Python | 3.11+ | |
 | Node | **20.19+ or 22+** | Vite 8 will not start on older Node |
 | Elasticsearch | 8.15+ | Elastic Cloud free trial works |
-| Supabase | — | Free tier works |
+| Supabase | any | Free tier works |
 
-### 1. Install
+### 1️⃣ Install
 
 ```bash
 git clone https://github.com/tyseer2335/HTN2026.git
@@ -134,26 +134,26 @@ cd frontend && npm install && cd ..
 > `npm.cmd install`, or run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
 > once. Git Bash avoids the issue entirely.
 
-### 2. Configure
+### 2️⃣ Configure
 
 ```bash
 cp .env.example .env
 ```
 
-Fill in `.env`. **It must be named exactly `.env`** — Notepad silently saves
+Fill in `.env`. **It must be named exactly `.env`.** Notepad silently saves
 `.env.txt`, which will not load. Nothing is read from `.env.example`; that file
 is only a template.
 
-#### Required
+#### 🔑 Required
 
 | Variable | Where to get it |
 |---|---|
-| `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) — planning + analysis |
+| `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys), used for planning and analysis |
 | `YOUTUBE_API_KEY` | Google Cloud Console → enable **YouTube Data API v3** → create API key (free) |
 | `ELASTIC_CLOUD_ID` + `ELASTIC_API_KEY` | Elastic Cloud deployment. Use `ELASTICSEARCH_URL` instead for self-hosted |
 | `SUPABASE_URL`<br>`SUPABASE_PUBLISHABLE_KEY`<br>`SUPABASE_SECRET_KEY` | Supabase → Project Settings → API. Publishable is the **anon** key, secret is **service_role** |
 
-#### Optional
+#### 🧩 Optional
 
 | Variable | Effect if unset |
 |---|---|
@@ -165,7 +165,7 @@ is only a template.
 A source without credentials is **skipped and reported**, never fatal. You can
 run the whole system with only `OPENAI_API_KEY` and get Hacker News and Lemmy.
 
-### 3. Initialize Supabase
+### 3️⃣ Initialize Supabase
 
 In the Supabase SQL Editor, run:
 
@@ -176,7 +176,7 @@ supabase/migrations/202609190001_initial_tenant_schema.sql
 This creates `organizations`, `organization_members`, `products` and
 `ingestion_jobs` with row-level security.
 
-### 4. Run
+### 4️⃣ Run
 
 ```bash
 # terminal 1 - backend on port 8000 (the Vite proxy expects this port)
@@ -193,9 +193,9 @@ click **Collect feedback**.
 
 ---
 
-## Voice agent (optional)
+## 🎙️ Voice agent (optional)
 
-The Vox panel works without ElevenLabs — it just will not speak. To enable it,
+The Vox panel works without ElevenLabs; it just will not speak. To enable it,
 note that the agent's tools are **webhooks ElevenLabs calls from its own
 servers**, so your machine must be reachable from the internet.
 
@@ -217,17 +217,17 @@ PYTHONPATH=src python scripts/setup_voice_agent.py
 # 5. restart the backend
 ```
 
-Verify with `curl localhost:8000/voice/config` — it should report
+Verify with `curl localhost:8000/voice/config`, which should report
 `{"configured": true}`.
 
 > **The tunnel URL is baked into the agent.** Quick tunnels get a new random URL
 > on every restart. If the tunnel restarts, update `PUBLIC_BASE_URL`, re-run the
-> setup script, and restart the backend — otherwise the agent still talks but
+> setup script, and restart the backend. Otherwise the agent still talks but
 > its tools 404 silently, and it answers from imagination instead of your data.
 
 ---
 
-## Command line
+## ⌨️ Command line
 
 The pipeline runs without the web app, which is useful for building a corpus
 before a demo.
@@ -249,7 +249,7 @@ python -m product_voice.index_cli "Cyberpunk 2077" --analytics --org acme --prod
 
 ---
 
-## Sources
+## 📡 Sources
 
 | Source | Needs | Volume | Notes |
 |---|---|---|---|
@@ -259,7 +259,7 @@ python -m product_voice.index_cli "Cyberpunk 2077" --analytics --org acme --prod
 | `steam` | nothing | **enormous** | Games only. 1.5M reviews on a large title |
 | `lemmy` | nothing | low | Federated Reddit-alike, real community voice |
 
-### Platforms that cannot be collected
+### 🚫 Platforms that cannot be collected
 
 Tested directly, including through residential proxies:
 
@@ -276,7 +276,7 @@ threads, which is what the Browserbase connector collects.
 
 ---
 
-## How the data is stored
+## 🧱 How the data is stored
 
 Every connector normalizes to one shape before anything downstream sees it:
 
@@ -287,7 +287,7 @@ ingested_at
 + sentiment  sentiment_score  is_complaint  issue_categories  relevant
 ```
 
-**One shared index**, filtered by `organization_id` / `product_id` / `source` —
+**One shared index**, filtered by `organization_id` / `product_id` / `source`,
 not one index per product, which would explode shard counts and make
 cross-product analytics impossible.
 
@@ -296,13 +296,13 @@ cross-product analytics impossible.
 duplicates and a crashed job can safely replay. Verified: indexing the same
 2,146 documents twice leaves 2,146 documents.
 
-**Usernames are never stored.** `author_hash` is a salted, source-scoped digest
-— enough to count distinct voices and spot one person posting fifty times,
+**Usernames are never stored.** `author_hash` is a salted, source-scoped digest:
+enough to count distinct voices and spot one person posting fifty times,
 without retaining who they are.
 
 ---
 
-## Failure behaviour
+## 🛟 Failure behaviour
 
 A partial result beats no result. Losing a real complaint is worse than showing
 a questionable row, which is why unknown relevance stays visible.
@@ -318,19 +318,19 @@ a questionable row, which is why unknown relevance stays visible.
 
 ---
 
-## Tests
+## 🧪 Tests
 
 ```bash
 PYTHONPATH=src python -m pytest tests/ -q
 ```
 
 61 tests, no network calls. Includes wiring tests that assert the modules fit
-together — added after a type mismatch between the analyzer and the enrichment
-layer shipped a 500 that every unit test passed straight through.
+together. They were added after a type mismatch between the analyzer and the
+enrichment layer shipped a 500 that every unit test passed straight through.
 
 ---
 
-## Known limits
+## ⚠️ Known limits
 
 Worth saying plainly rather than discovering live:
 
@@ -346,7 +346,7 @@ Worth saying plainly rather than discovering live:
 
 ---
 
-## Project layout
+## 📁 Project layout
 
 ```
 src/product_voice/
