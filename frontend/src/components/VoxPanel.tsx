@@ -186,6 +186,9 @@ function VoxSession({ product, token, issues, onClose, onOpenIssue }: Parameters
     const value = question.trim()
     if (!value) return
     setInput('')
+    // Typed and suggested messages aren't echoed back as a `user_transcript`
+    // the way spoken input is, so add the turn ourselves to mirror voice input.
+    setTurns((items) => [...items, { role: 'user', text: value, id: nextId.current++ }])
     if (connected) conversation.sendUserMessage(value)
     else {
       pendingRef.current = value
