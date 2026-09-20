@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ArrowRight, BarChart3, Check, Eye, EyeOff, LoaderCircle } from 'lucide-react'
 
@@ -11,6 +11,16 @@ export function AuthScreen({ supabase }: { supabase: SupabaseClient }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [confirmation, setConfirmation] = useState(false)
+  const [reduceMotion, setReduceMotion] = useState(false)
+
+  useEffect(() => {
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const updateMotionPreference = () => setReduceMotion(motionPreference.matches)
+
+    updateMotionPreference()
+    motionPreference.addEventListener('change', updateMotionPreference)
+    return () => motionPreference.removeEventListener('change', updateMotionPreference)
+  }, [])
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -39,6 +49,12 @@ export function AuthScreen({ supabase }: { supabase: SupabaseClient }) {
 
   return (
     <main className="auth-page">
+      {!reduceMotion && (
+        <video className="auth-video" autoPlay muted loop playsInline preload="metadata" aria-hidden="true">
+          <source src="/background_website.mp4" type="video/mp4" />
+        </video>
+      )}
+      <div className="auth-video-overlay" aria-hidden="true" />
       <section className="auth-story">
         <div className="auth-brand"><span className="overheard-logo large" role="img" aria-label="Overheard" /></div>
         <div className="story-copy">
