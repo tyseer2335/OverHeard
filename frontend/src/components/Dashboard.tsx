@@ -136,7 +136,7 @@ export function Dashboard({ session, supabase, notify }: DashboardProps) {
       {view !== 'new' && <Topbar organization={organization} product={product} range={range} setRange={setRange}
         onMenu={() => setMobileNav(true)} onSearch={() => setShowCommand(true)} onVox={() => setShowVox(true)} />}
       {!product ? <EmptyProducts onAdd={() => setShowAddProduct(true)} /> : dataLoading && !analytics ? <DashboardSkeleton /> : <>
-        {view === 'overview' && <Overview product={product} issues={issues} comments={comments} loading={dataLoading}
+        {view === 'overview' && <Overview product={product} analytics={analytics} issues={issues} comments={comments} loading={dataLoading}
           onRefresh={() => void loadData(product)} onCollect={() => setShowIngest(true)} onIssue={(id) => navigate('detail', id)} onIssues={() => navigate('issues')} />}
         {view === 'issues' && <IssuesPage issues={issues} onIssue={(id) => navigate('detail', id)} onNew={() => navigate('new')} />}
         {view === 'evidence' && <EvidencePage comments={comments} />}
@@ -188,13 +188,15 @@ function Topbar({ organization, product, range, setRange, onMenu, onSearch, onVo
   return <header className="ov-topbar"><button className="mobile-menu" onClick={onMenu}><Menu/></button><div className="ov-crumb"><span>{organization.name}</span><b>/</b>{product?.name || 'Products'}</div><div className="top-actions"><div className="range-control">{(['24h','7d','30d'] as const).map((item) => <button key={item} className={range === item ? 'active' : ''} onClick={() => setRange(item)}>{item}</button>)}</div><button className="search-trigger" onClick={onSearch}><Search/>Search <kbd>⌘K</kbd></button><button className="outline-accent" onClick={onVox}><Mic/>Ask Vox</button></div></header>
 }
 
-function Overview({ product, issues, comments, loading, onRefresh, onCollect, onIssue, onIssues }: {
-  product: Product; issues: Issue[]; comments: ProductComment[]; loading: boolean; onRefresh: () => void; onCollect: () => void; onIssue: (id: string) => void; onIssues: () => void
+function Overview({ product, analytics, issues, comments, loading, onRefresh, onCollect, onIssue, onIssues }: {
+  product: Product; analytics: Analytics | null; issues: Issue[]; comments: ProductComment[]; loading: boolean; onRefresh: () => void; onCollect: () => void; onIssue: (id: string) => void; onIssues: () => void
 }) {
   const evidence = rankEvidence(comments).slice(0,6)
+  const sources = analytics?.by_source || []
   return <div className="ov-page">
     <PageHeader eyebrow="Executive brief" title={product.name} subtitle="Recommended product decisions, grounded in public customer feedback." actions={<><button className="button" onClick={onRefresh}><RefreshCw className={loading ? 'spin' : ''}/>Refresh</button><button className="button accent" onClick={onCollect}><PackageSearch/>Collect feedback</button></>} />
     <section className="action-section"><SectionHead title="Recommended actions" subtitle="Start here — these are the clearest opportunities in the current feedback." action={<button onClick={onIssues}>See all pain points</button>}/><div className="executive-actions">{issues.slice(0,3).map((issue,index)=><article className="surface executive-action" key={issue.id}><span>{String(index+1).padStart(2,'0')}</span><div><h2>Address {issue.title.toLowerCase()}</h2><p>{issue.summary}</p><small>{issue.mentions} relevant comments · {issue.sources.length || 1} source{issue.sources.length===1?'':'s'} · {sentimentLabel(issue.sentiment)} sentiment</small></div><button onClick={()=>onIssue(issue.id)}>Review decision <ArrowRight/></button></article>)}{!issues.length&&<div className="surface"><Empty title="No recommendations yet" text="Collect feedback to generate evidence-backed actions."/></div>}</div></section>
+    <section className="evidence-snapshot" aria-label="Feedback evidence snapshot"><article className="surface"><strong>{(analytics?.total || 0).toLocaleString()}</strong><span>Relevant comments analyzed</span><small>The feedback used to create these recommendations.</small></article><article className="surface"><strong>{analytics?.total ? `${Math.round(analytics.complaint_rate*100)}%` : '0%'}</strong><span>Describe a product problem</span><small>{(analytics?.complaints || 0).toLocaleString()} comments contain a complaint.</small></article><article className="surface"><strong>{(analytics?.distinct_authors || 0).toLocaleString()}</strong><span>Unique author accounts</span><small>Shows how many separate voices support the findings.</small></article><article className="surface"><strong>{sources.length}</strong><span>Sources represented</span><small>{sources.length ? sources.map((source)=>titleCase(source.source)).join(', ') : 'Collect feedback to add sources.'}</small></article></section>
     <section className="surface overview-evidence"><SectionHead title="Evidence behind these decisions" subtitle="The highest-impact public comments, ordered by engagement."/><div className="overview-evidence-grid">{evidence.map((item)=><EvidenceCard key={`${item.source}-${item.external_id}`} item={item} expanded/>)}{!evidence.length&&<Empty title="No evidence yet" text="Run a collection to populate this view."/>}</div></section>
   </div>
 }
